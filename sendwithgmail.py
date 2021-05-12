@@ -40,7 +40,7 @@ REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
 def init():
     # parse command line arguments
     parser = argparse.ArgumentParser(
-            description='Web Server for sendwithgmail V' + DuetMonitorVersion,
+            description='Web Server for DuetMonitor V' + DuetMonitorVersion,
             allow_abbrev=False)
     # Environment
     parser.add_argument('-host', type=str, nargs=1, default=['0.0.0.0'],
@@ -49,8 +49,8 @@ def init():
                         help='Specify the port on which the server listens. Default = 0')
     parser.add_argument('-To', type=str, nargs=1, default=[''],
                         help='To: email address. Default = Your gmail')
-    parser.add_argument('-Subject', type=str, nargs=1, default=['Message from sendwithgmail'],
-                        help='email Subject:. Default = Message from sendwithgmail')
+    parser.add_argument('-Subject', type=str, nargs=1, default=['Message from DuetMonitor'],
+                        help='email Subject:. Default = Message from DuetMonitor')
     args = vars(parser.parse_args())
 
     global host, port, TO_ADDRESS, SUBJECT
@@ -254,7 +254,7 @@ class MyHandler(SimpleHTTPRequestHandler):
 
         if MESSAGE:
             txt = []
-            txt.append('sendwithgmail Version: ' + sendwithgmailVersion + '<br>')
+            txt.append('DuetMonitor Version: ' + sendwithgmailVersion + '<br>')
             txt.append('To: ' + TO_ADDRESS + '<br>')
             txt.append('From: ' + FROM_ADDRESS + '<br>')
             txt.append('Subject: ' + SUBJECT + '<br>')
@@ -305,13 +305,13 @@ def savecredentials(thislist):
         encitem = str(encitem, 'utf8') # needs to be string to save as json
         enclist.append(encitem)
 
-    with open("sendwithgmail.conf", "w") as f:
+    with open("DuetMonitor.conf", "w") as f:
         json.dump(enclist, f)
         f.close()
             
 
 def loadcredentials():
-    with open("sendwithgmail.conf", "r") as f:
+    with open("DuetMonitor.conf", "r") as f:
         enclist = json.load(f)
         f.close()
 
@@ -344,8 +344,8 @@ def closeHttpListener():
 def shut_down():
     global httpthread
     send_mail(FROM_ADDRESS,TO_ADDRESS,
-              'sendwithgmail has been shut down',
-              '<b>This email confirms that sendwithgmail has been shut down.')
+              'DuetMonitor has been shut down',
+              '<b>This email confirms that DuetMonitor has been shut down.')
     time.sleep(1)  # give pending actions a chance to finish
     try:  # this should close this thread
         httpthread.join(10)
@@ -373,7 +373,7 @@ if __name__ == '__main__':
     
     # Check to see if a config file exists
     nocredentials = True
-    if path.exists('sendwithgmail.conf'): 
+    if path.exists('DuetMonitor.conf'): 
         try:
             creds = loadcredentials()
             GOOGLE_CLIENT_ID = creds[0]
@@ -383,7 +383,7 @@ if __name__ == '__main__':
             if TO_ADDRESS == '': TO_ADDRESS = FROM_ADDRESS
             nocredentials = False
         except:
-            print('\n***The credentials file - sendwithgmail.conf - may be missing or have incorrect data***\n')
+            print('\n***The credentials file - DuetMonitor.conf - may be missing or have incorrect data***\n')
             nocredentials = True
             
 
@@ -399,8 +399,8 @@ if __name__ == '__main__':
         if not (refresh_token is None):
             GOOGLE_REFRESH_TOKEN = refresh_token
             send_mail(FROM_ADDRESS,TO_ADDRESS,
-              'A confirmation email from you for sendwithgmail',
-              '<b>This email confirms that the credentials for sendwithgmail are correct</b><br><br>' +
+              'A confirmation email from you for DuetMonitor',
+              '<b>This email confirms that the credentials for DuetMonitor are correct</b><br><br>' +
               'So happy to hear from you!')
             confirm = input('\nA confirmation email has been sent to you. Did you get it (y/n):  ')
             if confirm == 'y':
@@ -434,8 +434,8 @@ if __name__ == '__main__':
             httpthread = threading.Thread(target=createHttpListener, args=()).start()
             # httpthread.start()
             send_mail(FROM_ADDRESS,TO_ADDRESS,
-              'sendwithgmail has started',
-              '<b>This email confirms that sendwithgmail is running on port  '+str(port))
+              'DuetMonitor has started',
+              '<b>This email confirms that DuetMonitor is running on port  '+str(port))
             
             print('***** Started http listener on port:  '+str(port)+'  *****')   
 
