@@ -1,6 +1,8 @@
 # DuetMonitor
 
-It provides a simple http interface for sending simple messages via gmail.
+A monitor of Duet Status which sends change notifications emails via gmail.
+Can also be called vie http (e.g. from a broswer) to end an arbirtary message and to change subject and To address,
+It is intended to be run continuously in the background.
 
 
 
