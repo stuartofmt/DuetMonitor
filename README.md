@@ -1,18 +1,18 @@
 # DuetMonitor
 
 A monitor of Duet Status which sends change notifications emails via gmail.
-Can also be called vie http (e.g. from a broswer) to end an arbirtary message and to change subject and To address,
-It is intended to be run continuously in the background.
+Can also be called with http (e.g. from a browser) to end an arbitrary message and to change subject and To address,
+
 
 
 
 ###Version 1.0.0
-[1]  Initial versionn
+[1]  Initial version
 
 
 ## General Description
 
-**sendwithgmail** designed to run continuously and accept http commands either from a browser, curl or other means of sending http get commands.<br>
+**DuetMonitor** designed to run continuously and accept http commands either from a browser, curl or other means of sending http get commands.<br>
 It is used to send an email from your gmail account to a recipient and intended for short messages.<br>
 
 
@@ -22,17 +22,17 @@ It is used to send an email from your gmail account to a recipient and intended 
 * Linux OS,  Windows 10, Windows Subsystem Linux (WSL) tested
 * You MUST have a gmail email account
 * You MUST have gathered additional credentials by following the instructions here:<br>
-https://github.com/stuartofmt/Send-With-Gmail/blob/main/GettingCredentials.md
+https://github.com/stuartofmt/DuetMonitor/blob/master/GettingCredentials.md
   
 
 ## Installation
 
 For Linux:<br>
 
-cd to the a directory of your choice (It is usually simpler if this directory is only used for sendwithgmail
+cd to the a directory of your choice (It is usually simpler if this directory is only used for DuetMonitor
 
-`wget https://github.com/stuartofmt/Send-With-Gmail/raw/main/sendwithgmail.py
-chmod 744 sendwithgmail.py
+`wget https://github.com/stuartofmt/DuetMonitor/raw/main/DuetMonitor.py
+chmod 744 DuetMonitor.py
 `
 
 For windows<br>
@@ -43,35 +43,35 @@ Take note of editing the path variable(s) so that python3 and its libraries / mo
 
 ## Setup
 There is an initial setup stage to input and validate credentials.  If the credentials are changed - this initial setup must be done again.
-Setup results in a file sendwithgmail.conf being created.  This file contains validated credentials and is used when the program starts normally.
-If the file NOT present - the setup process is used.  In this way - if credentials change - the file sendwithgmail.conf can be recreated by first deleting it and then rerunning the setup.
+Setup results in a file DuetMonitor.conf being created.  This file contains validated credentials and is used when the program starts normally.
+If the file NOT present - the setup process is used.  In this way - if credentials change - the file DuetMonitor.conf can be recreated by first deleting it and then rerunning the setup.
 
-Follow the instructions here for setting up sendwithgmail:<br>
-https://github.com/stuartofmt/Send-With-Gmail/blob/main/SetupInstructions.md
+Follow the instructions here for setting up DuetMonitor:<br>
+https://github.com/stuartofmt/DuetMonitor/blob/master/SetupInstructions.md
 
   
-## Starting sendwithgmail
-Once setup is complete - you will normally start sendwithgmail in one of the following ways.
+## Starting
+Once setup is complete - you will normally start DuetMonitor in one of the following ways.
 
-sendwithgmail runs as a http listener<br>
-The http listener requires a port number using the -port option  This is mandatory.<br>
+DuetMonitor requires a port number using the -port option  This is mandatory.<br>
 Other options for startup are described in the ##Options## section below.
 
-sendwithgmail can be started from the command line or, more usually using systemctl (not available on Win10 or WSL) or equivalent
+DuetMonitor can be started from the command line or, more usually using systemctl (not available on Win10 or WSL) or equivalent
 .<br>
 It is usually run in the background.<br>
-Sample instructions for setting up using systemctl are here https://github.com/stuartofmt/Send_With_Gmail/blob/main/?????
+Sample instructions for setting up using systemctl are here:<br>
+https://github.com/stuartofmt/DuetMonitor/blob/master/SetupInstructions.md
 
 **Note that the program will send a system email confirming startup.**
 
-Example command line for running sendwithgmail in the background (linux)
+Example command line for running DuetMonitor in the background (linux)
 ```
-python3 ./sendwithgmail.py -port 8090 &
+python3 ./DuetMonitor.py -port 8090 &
 ```
 or if you plan to close the command console - use nohup
 
 ```
-nohup python3 ./sendwithgmail.py -port 8090 &
+nohup python3 ./DuetMonitor.py -port 8090 &
 ```
 
 On windows things are slightly different - note the use of pythonw
@@ -80,7 +80,7 @@ which will run python in the background (tested with python 3.9)
 Note the use of pythonw and the output files to check if everything was successful
 
 ```
-pythonw sendwithgmail.py -port 8090 > sendwithgmail.log 2>&1
+pythonw DuetMonitor.py -port 8090 > DuetMonitor.log 2>&1
 
 ```
 
@@ -88,14 +88,14 @@ If the program is run in foreground it can be shutdown using CTRL+C (on linux) o
 If the program is run in background it can be stopped using http with command=terminate (see the section on **Usage** below).<br>
 **Note that the program will send a system email confirming that the program is terminated.**
 
-**Note that the http listener will stop responding if sendwithgmail is run from a command console that is then closed.
+**Note that the http listener will stop responding if DuetMonitor is run from a command console that is then closed.
 This will happen even if started in background.<br>
 To avoid this - use nohup (linux) or start with pythonw (on Windows)<br>
-An alternative if you are on Win10 is to use  Windows Subsystem for Linux (WSL) and run sendwithgmail as a linux application inside WSL.<br>**
+An alternative if you are on Win10 is to use  Windows Subsystem for Linux (WSL) and run DuetMonitor as a linux application inside WSL.<br>**
 
 ### Usage
 
-sendwithgmail is used by sending html - therefore it can be tested using a browser.  The normal use is intended to allow programs to send simple email messaged by invoking html.
+DuetMonitor is used by sending html - therefore it can be tested using a browser.  The normal use is intended to allow programs to send simple email messaged by invoking html.
 The general form is as follows:
 ```
 http://<ipaddress>:<port>/?{instruction}[&{instruction}]
@@ -111,7 +111,7 @@ The main instructions are:
 These are all optional. **The only time an email is sent is if the Message instruction is used**<br>
 If To and / or Subject are used they change the current settings until another change is made.
 This means that emails can be sent by only using the Message instruction.<br><br>
-When sendwithgmail starts - it uses default setting as specified in the **Options** section.<br><br>
+When DuetMonitor starts - it uses default setting as specified in the **Options** section.<br><br>
 Example - send an email using the current settings of To and Subject:
 ```
 http://localhost:8090/?Message=I just sent an email
@@ -129,13 +129,13 @@ Example - send an email changing the To and Subject:
 http://localhost:8090/?To=someone@somewhere.com$Subject=New&Message=An email for you
 ```
 ---
-The following cn be used to remotely terminate sendwithgmail.  If used with other instructions - they are ignored (i.e. you cannot send an email and terminate in one instruction).
+The following cn be used to remotely terminate DuetMonitor.  If used with other instructions - they are ignored (i.e. you cannot send an email and terminate in one instruction).
 **Note thatthe program will send a system email confirming that the program is terminated.**
 
-command=terminate  - causes sendwithgmail to terminate<br>
+command=terminate  - causes DuetMonitor to terminate<br>
 Example:
 ```
-http://localhost:8090/?command=terminate     #Will cause the instance of sendwithgmail on port 8090 to terminate
+http://localhost:8090/?command=terminate     #Will cause the instance of DuetMonitor on port 8090 to terminate
 ```
 ---
 
@@ -143,7 +143,7 @@ http://localhost:8090/?command=terminate     #Will cause the instance of sendwit
 
 Options can be viewed with
 ```
-python3 sendwithgmail.py -h
+python3 DuetMonitor.py -h
 ```
 The response will give the version number at the top.
 
@@ -177,7 +177,7 @@ Example
 ```
 
 #### -Subject [String]
-If omitted - the default is 'Message from sendwithgmail'
+If omitted - the default is 'Message from DuetMonitor'
 
 Example
 ```
