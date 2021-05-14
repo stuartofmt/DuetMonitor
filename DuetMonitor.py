@@ -286,9 +286,199 @@ class MyHandler(SimpleHTTPRequestHandler):
 
     def log_message(self, format, *args):
         pass
-    
-    
-    
+"""
+Duet APIs
+"""
+
+def connectDuet()
+    global apiModel
+
+    # Get connected to the printer.
+
+    apiModel, printerVersion = getDuetVersion()
+
+    if apiModel == 'none':
+        print('')
+        print('###############################################################')
+        print('The printer at ' + duet + ' did not respond')
+        print('Check the ip address or logical printer name is correct')
+        print('Duet software must support rr_model or /machine/status')
+        print('###############################################################')
+        print('')
+        sys.exit(2)
+
+    majorVersion = int(printerVersion[0])
+
+    if majorVersion >= 3:
+        print('')
+        print('###############################################################')
+        print(
+                'Connected to printer at ' + duet + ' using Duet version ' + printerVersion + ' and API access using ' + apiModel)
+        print('###############################################################')
+        print('')
+    else:
+        print('')
+        print('###############################################################')
+        print('The printer at ' + duet + ' needs to be at version 3 or above')
+        print('The version on this printer is ' + printerVersion)
+        print('###############################################################')
+        print('')
+        sys.exit(2)
+
+
+def urlCall(url, timelimit):
+    loop = 0
+    limit = 2  # Started at 2 - seems good enough to catch transients
+    while loop < limit:
+        try:
+            r = requests.get(url, timeout=timelimit)
+            break
+        except requests.ConnectionError as e:
+            print('')
+            print(
+                    '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            print('There was a network failure: ' + str(e))
+            print(
+                    '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            print('')
+            loop += 1
+            error = 'Connection Error'
+        except requests.exceptions.Timeout as e:
+            print('')
+            print(
+                    '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            print('There was a timeout failure: ' + str(e))
+            print(
+                    '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            print('')
+            loop += 1
+            error = 'Timed Out'
+        time.sleep(1)
+
+    if loop >= limit:  # Create dummy response
+        class r:
+            ok = False
+            status_code = 9999
+            reason = error
+
+    return r
+
+
+def getDuetVersion():
+    # Used to get the status information from Duet
+    try:
+        model = 'rr_model'
+        URL = ('http://' + duet + '/rr_model?key=boards')
+        r = urlCall(URL, 5)
+        j = json.loads(r.text)
+        version = j['result'][0]['firmwareVersion']
+        return 'rr_model', version;
+    except:
+        try:
+            model = '/machine/system'
+            URL = ('http://' + duet + '/machine/status')
+            r = urlCall(URL, 5)
+            j = json.loads(r.text)
+            version = j['boards'][0]['firmwareVersion']
+            return 'SBC', version;
+        except:
+            return 'none', '0';
+
+
+def getDuetStatus(model):
+    # Used to get the status information from Duet
+    if model == 'rr_model':
+        URL = ('http://' + duet + '/rr_model?key=state.status')
+        r = urlCall(URL, 5)
+        if r.ok:
+            try:
+                j = json.loads(r.text)
+                status = j['result']
+                return status
+            except:
+                pass
+    else:
+        URL = ('http://' + duet + '/machine/status/')
+        r = urlCall(URL, 5)
+        if r.ok:
+            try:
+                j = json.loads(r.text)
+                status = j['state']['status']
+                return status
+            except requests.exceptions.RequestException as e:
+                pass
+    print('getDuetStatus failed to get data. Code: ' + str(r.status_code) + ' Reason: ' + str(r.reason))
+    return 'disconnected'
+
+
+
+"""
+Monitor
+"""
+def MonitorLoop():  # Run as a thread
+    global capturing, printState, duetStatus
+    capturing = True
+    disconnected = 0
+    printState = 'Not Capturing'
+    lastDuetStatus = ''
+
+    while capturing:  # action can be changed by httpListener or SIGINT or CTL+C
+
+        duetStatus = getDuetStatus(apiModel)
+
+        if duetStatus == 'disconnected':  # provide some resiliency for temporary disconnects
+            disconnected += 1
+            print('Printer is disconnected - Trying to reconnect')
+            if disconnected > 10:  # keep trying for a while just in case it was a transient issue
+                print('')
+                print(
+                        '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+                print('Printer was disconnected from Duet for too long')
+                print('Finishing this capture attempt')
+                print(
+                        '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+                print('')
+                printState = 'Disconnected'
+                nextactionthread = threading.Thread(target=nextAction,
+                                                    args=('terminate',)).start()  # Note comma in args is needed
+                # nextactionthread.start()
+                return
+
+        if duetStatus != lastDuetStatus:  # What to do next?
+            print('****** Duet status changed to: ' + duetStatus + ' *****')
+            # logical states for printer are printing, completed
+            if (duetStatus == 'idle') and (printState in ['Capturing', 'Busy']):  # print job has finished
+                printState = 'Completed'  # print('****** Print State changed to ' + printState + ' *****')
+            elif (duetStatus in ['processing', 'idle']) or (duetStatus == 'paused' and detect == 'pause'):
+                printState = 'Capturing'  # print('****** Print State changed to: ' + printState + ' *****')
+            elif duetStatus == 'busy':
+                printState = 'Busy'  # print('****** Print State changed to: ' + printState + ' *****')
+            else:
+                printState = 'Waiting'
+            print('****** Print State changed to: ' + printState + ' *****')
+
+        if printState == 'Capturing':
+            oneInterval('Camera1', camera1, weburl1, camparam1)
+            if camera2 != '':
+                oneInterval('Camera2', camera2, weburl2, camparam2)
+            unPause()  # Nothing should be paused at this point
+            disconnected = 0
+        elif printState == 'Completed':
+            print('Print Job Completed')
+            printState = 'Not Capturing'
+            # use a thread here as it will allow this thread to close.
+            nextactionthread = threading.Thread(target=nextAction,
+                                                args=('terminate',)).start()  # Note comma in args is needed
+            return
+
+        if capturing:  # If no longer capturing - sleep is by-passed for speedier exit response
+            lastDuetStatus = duetStatus
+            time.sleep(poll)  # poll every n seconds - placed here to speeed startup
+
+    print('Exiting Capture loop')
+    capturing = False
+    printState = 'Not Capturing'
+    return  # The return ends the thread
     
 """
 Utility Functions    
@@ -449,7 +639,7 @@ if __name__ == '__main__':
         sys.exit(2)
     monitor = True
     if monitor == True:
-        #startMonitor()
+        connectDuet()
         pass
     else:
         pass
