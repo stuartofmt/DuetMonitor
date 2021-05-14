@@ -640,7 +640,6 @@ if __name__ == '__main__':
     monitor = True
     if monitor == True:
         connectDuet()
-        pass
     else:
         pass
 
