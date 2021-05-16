@@ -33,6 +33,7 @@ import argparse
 import socket
 import threading
 import time
+import requests
 
 GOOGLE_ACCOUNTS_BASE_URL = 'https://accounts.google.com'
 REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
@@ -54,8 +55,8 @@ def init():
                         help='email Subject:. Default = Message from DuetMonitor')
     parser.add_argument('-duet', type=str, nargs=1, default=['localhost'],
                         help='Name of duet or ip address. Default = localhost')
-    parser.add_argument('-poll', type=float, nargs=1, default=[5])
-    parser.add_argument('-monitors', type=str, nargs=1, default=['idle','busy','processing'],
+    parser.add_argument('-poll', type=float, nargs=1, default=[15])
+    parser.add_argument('-monitors', type=str, nargs=1, default=[('idle','busy','processing')],
                         help='Status to monitor. Default = all')
     parser.add_argument('-startmonitor', action='store_true', help='Default = start monitoring')
     args = vars(parser.parse_args())
@@ -220,13 +221,13 @@ class MyHandler(SimpleHTTPRequestHandler):
         return content.encode("utf8")  # NOTE: must return a bytes object!
 
     def do_GET(self):
-        global TO_ADDRESS, SUBJECT, monitoring
+        global TO_ADDRESS, SUBJECT, monitoring, monitors
 
         if 'favicon.ico' in self.path:
             return
 
         MESSAGE = ''
-        tochange = subjectchange = cmderror = ''
+        tochange = subjectchange = cmdmsg = ''
         
         query_components = parse_qs(urlparse(self.path).query)
         
@@ -237,28 +238,36 @@ class MyHandler(SimpleHTTPRequestHandler):
                                     
             if (cmd == 'terminate'):
                 shut_down()
-
-            #only used if invalid command
-            txt = []
-            txt.append('Invalid command :  ')
-            txt.append(cmd+'<br>')
-            cmderror=''.join(txt)
-
-        if query_components.get('monitor'):
-            cmd = query_components['monitor'][0]
-
-            if cmd == 'start':
+                return
+            elif cmd == 'start':
                 if not monitoring:
-                    monitorthread = threading.Thread(target=monitorLoop, args=()).start()
+                    startMonitoring()
+                    txt = []
+                    txt.append('Monitoring has been started<br>')
+                    txt.append('The following states are being monitored:  '+str(monitors))
+                    cmdmsg = ''.join(txt)
+                else:
+                    txt = []
+                    txt.append('Command was ignored because Monitoring is already started<br>')
+                    txt.append('The following states are being monitored:  '+str(monitors))
+                    cmdmsg = ''.join(txt)
             elif cmd == 'stop':
                 monitoring = False
+                txt = []
+                txt.append('Monitoring has been Stopped')
+                cmdmsg = ''.join(txt)
             else:
                 # only used if invalid command
                 txt = []
-                txt.append('Invalid monitor command :  ')
+                txt.append('Invalid command :  ')
                 txt.append(cmd + '<br>')
-                cmderror = ''.join(txt)
+                cmdmsg = ''.join(txt)
 
+        if query_components.get('monitors'):
+            monitors = query_components['monitors'][0]
+            txt = []
+            txt.append('Monitors have been set to: '+str(monitors))
+            cmdmsg = ''.join(txt)
 
         if query_components.get('To'):
             TO_ADDRESS = query_components['To'][0]
@@ -290,17 +299,16 @@ class MyHandler(SimpleHTTPRequestHandler):
             
             send_mail(FROM_ADDRESS,TO_ADDRESS,
                      SUBJECT,
-                     '<b>'+MESSAGE
+                     '<br>'+MESSAGE
                      )
          
         else:
             txt = []
-            txt.append('Info Message. <br>')
-            txt.append('No email was sent<br>')
+            txt.append('Information Message. <br><br>')
             response=''.join(txt)
             
         self._set_headers()
-        self.wfile.write(self._html(response+tochange+subjectchange+cmderror))
+        self.wfile.write(self._html(response+tochange+subjectchange+cmdmsg))
 
         return
     """
@@ -316,14 +324,34 @@ class MyHandler(SimpleHTTPRequestHandler):
 Duet APIs
 """
 
+
+def getDuetVersion():
+    # Used to get the status information from Duet
+    try:
+        model = 'rr_model'
+        URL = ('http://' + duet + '/rr_model?key=boards')
+        r = urlCall(URL, 5)
+        j = json.loads(r.text)
+        version = j['result'][0]['firmwareVersion']
+        return 'rr_model', version;
+    except:
+        try:
+            model = '/machine/system'
+            URL = ('http://' + duet + '/machine/status')
+            r = urlCall(URL, 5)
+            j = json.loads(r.text)
+            version = j['boards'][0]['firmwareVersion']
+            return 'SBC', version;
+        except:
+            return 'none', '0';
+
 def connectDuet():
-    global apiModel
-    connected = True
+    connected = False
     # Get connected to the printer.
 
-    apiModel, printerVersion = getDuetVersion()
+    apimodel, printerVersion = getDuetVersion()
 
-    if apiModel == 'none':
+    if apimodel == 'none':
         print('')
         print('###############################################################')
         print('The printer at ' + duet + ' did not respond')
@@ -333,16 +361,19 @@ def connectDuet():
         print('')
         connected = False
         message =  ('The printer at ' + duet + ' did not respond')
+        return apimodel, connected
 
     majorVersion = int(printerVersion[0])
 
     if majorVersion >= 3:
+        message = 'Connected to printer at ' + duet + ' using Duet version ' + printerVersion + '\nand using API access method ' + apimodel
         print('')
         print('###############################################################')
-        print( 'Connected to printer at ' + duet + ' using Duet version ' + printerVersion + ' and API access using ' + apiModel)
+        print( message)
         print('###############################################################')
         print('')
-        message = 'Connected to printer at ' + duet + ' using Duet version ' + printerVersion + ' and API access using ' + apiModel
+        connected = True
+        return apimodel, connected
     else:
         print('')
         print('###############################################################')
@@ -352,7 +383,7 @@ def connectDuet():
         print('')
         connected = False
         message =  ('The printer at ' + duet + ' needs to be at version 3 or above')
-    return connected, message
+        return apimodel, connected
 
 def urlCall(url, timelimit):
     loop = 0
@@ -392,27 +423,6 @@ def urlCall(url, timelimit):
     return r
 
 
-def getDuetVersion():
-    # Used to get the status information from Duet
-    try:
-        model = 'rr_model'
-        URL = ('http://' + duet + '/rr_model?key=boards')
-        r = urlCall(URL, 5)
-        j = json.loads(r.text)
-        version = j['result'][0]['firmwareVersion']
-        return 'rr_model', version;
-    except:
-        try:
-            model = '/machine/system'
-            URL = ('http://' + duet + '/machine/status')
-            r = urlCall(URL, 5)
-            j = json.loads(r.text)
-            version = j['boards'][0]['firmwareVersion']
-            return 'SBC', version;
-        except:
-            return 'none', '0';
-
-
 def getDuetStatus(model):
     # Used to get the status information from Duet
     if model == 'rr_model':
@@ -443,16 +453,26 @@ def getDuetStatus(model):
 """
 Monitor
 """
-def monitorLoop():  # Run as a thread
-    global monitoring, printState, duetStatus
+def startMonitoring():
+    global connected
+    apimodel, connected = connectDuet()
+
+    if connected:  # Monitor Loop will send Message
+        monitorthread = threading.Thread(target=monitorLoop, args=(apimodel,)).start()
+    else:
+        return False
+    return True
+
+
+def monitorLoop(apimodel):  # Run as a thread
+    global monitoring, duetStatus
     monitoring = True
     disconnected = 0
-    printState = 'Not Capturing'
-    lastDuetStatus = ''
+    lastDuetStatus = 'Not Monitoring'
 
     while monitoring:  # action can be changed by httpListener or SIGINT or CTL+C
 
-        duetStatus = getDuetStatus(apiModel)
+        duetStatus = getDuetStatus(apimodel)
 
         if duetStatus == 'disconnected':  # provide some resiliency for temporary disconnects
             disconnected += 1
@@ -467,25 +487,25 @@ def monitorLoop():  # Run as a thread
                         '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
                 print('')
                 monitoring = False
-                SUBJECT = 'Duet has disconnected'
-                MESSAGE = 'Printer was disconnected from Duet for too long <br>Monitoring has been stopped'
+                SUBJECT = 'DuetMonitor:  Duet has disconnected'
+                MESSAGE = 'The printer at ' +duet + 'was disconnected from DuetMonitor for too long <br>Monitoring has been stopped'
                 send_mail(FROM_ADDRESS,TO_ADDRESS,SUBJECT,MESSAGE)
                 return
 
         if (duetStatus != lastDuetStatus) and (duetStatus in monitors):  # Send a message
-            SUBJECT = 'Duet Status has Changed'
-            MESSAGE = ('****** Duet status changed from:  '+ lastDuetStatus + '  to:  '+ duetStatus + ' *****')
-            print(MESSAGE)
+            SUBJECT = 'DuetMonitor: Status is ' + duetStatus
+            MESSAGE = ('DuetMonitor is watching the following status changes:  '+str(monitors) + '<br>Duet status changed from:  '+ lastDuetStatus + '  to:  '+ duetStatus)
+            print(MESSAGE.replace('<br>','\n'))
             send_mail(FROM_ADDRESS, TO_ADDRESS, SUBJECT, MESSAGE)
 
-        if monitoring:  # If no longer capturing - sleep is by-passed for speedier exit response
+        if monitoring:  # If no longer monitoring - sleep is by-passed for speedier exit response
             lastDuetStatus = duetStatus
             time.sleep(poll)  # poll every n seconds - placed here to speeed startup
 
-    SUBJECT = 'Duet Monitoring has stopped'
-    MESSAGE = 'Monitoring was stopped as a result of some command - likely a http message'
+    SUBJECT = 'DuetMonitor: Monitoring has ben suspended'
+    MESSAGE = 'Monitoring has been suspended as a result of a user request <br>DuetMonitor is still running'
     monitoring = False
-    print(MESSAGE)
+    print(MESSAGE.replace('<br>','\n'))
     send_mail(FROM_ADDRESS, TO_ADDRESS, SUBJECT, MESSAGE)
     return  # The return ends the thread
     
@@ -542,7 +562,7 @@ def shut_down():
     global httpthread
     send_mail(FROM_ADDRESS,TO_ADDRESS,
               'DuetMonitor has been shut down',
-              '<b>This email confirms that DuetMonitor has been shut down.')
+              '<br>This message confirms that DuetMonitor has been shut down.')
     time.sleep(1)  # give pending actions a chance to finish
     try:  # this should close this thread
         httpthread.join(10)
@@ -564,7 +584,9 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, quit_gracefully)    
     
     global GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, FROM_ADDRESS, TO_ADDRESS, SUBJECT
-    global thisinstancepid, httpthread
+    global thisinstancepid, httpthread, monitoring, connected
+    monitoring = False
+    connected = False
     
     init()  # get the command line inputs
     
@@ -596,7 +618,7 @@ if __name__ == '__main__':
         if not (refresh_token is None):
             GOOGLE_REFRESH_TOKEN = refresh_token
             send_mail(FROM_ADDRESS,TO_ADDRESS,
-              'A confirmation email from you for DuetMonitor',
+              'DuetMonitor: Confirmation email',
               '<b>This email confirms that the credentials for DuetMonitor are correct</b><br><br>' +
               'So happy to hear from you!')
             confirm = input('\nA confirmation email has been sent to you. Did you get it (y/n):  ')
@@ -632,24 +654,15 @@ if __name__ == '__main__':
             # or just call createHttpListener()
             httpthread = threading.Thread(target=createHttpListener, args=()).start()
             # httpthread.start()
-            SUBJECT = '<DuetMonitor has started',
-            MESSAGE =  '<b>This email confirms that DuetMonitor is running on port  '+str(port)
+            SUBJECT = 'DuetMonitor has started'
+            MESSAGE =  'This message confirms that DuetMonitor is running on port  '+str(port)
             if startmonitor:
-                try:
-                    connected, MESSAGE = connectDuet()
-                    MESSAGE = MESSAGE + '<b>Monitoring has started on the following:<br>'+str(monitors)
-                except:
-                    SUBJECT = 'There was a problem connecting to Duet'
-                    MESSAGE = 'Could not connect to Duet'
-
-                if connected:
-                    monitorthread = threading.Thread(target=monitorLoop, args=()).start()
-
-            send_mail(FROM_ADDRESS,TO_ADDRESS, SUBJECT, MESSAGE)
-            print(MESSAGE)
-
+                startMonitoring()
         except KeyboardInterrupt:
             pass  # This is handled as SIGINT
+        if not connected:
+            print(MESSAGE)
+            send_mail(FROM_ADDRESS, TO_ADDRESS, SUBJECT, MESSAGE)
     else:
         print('No port number was provided or port is already in use')
         sys.exit(2)
