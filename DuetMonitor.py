@@ -56,12 +56,13 @@ def init():
     parser.add_argument('-duet', type=str, nargs=1, default=['localhost'],
                         help='Name of duet or ip address. Default = localhost')
     parser.add_argument('-poll', type=float, nargs=1, default=[15])
-    parser.add_argument('-monitors', type=str, nargs=1, default=[('idle','busy','processing')],
+    parser.add_argument('-monitors', type=str, nargs=1, default=[('all')],
                         help='Status to monitor. Default = all')
     parser.add_argument('-startmonitor', action='store_true', help='Default = start monitoring')
+    parser.add_argument('-nodisplay', action='store_true', help='Default = display Messages')
     args = vars(parser.parse_args())
 
-    global host, port, TO_ADDRESS, SUBJECT, duet, poll, monitors, startmonitor
+    global host, port, TO_ADDRESS, SUBJECT, duet, poll, monitors, startmonitor, nodisplay
 
     host = args['host'][0]
     port = args['port'][0]  
@@ -71,6 +72,7 @@ def init():
     poll = args['poll'][0]
     monitors = args['monitors'][0]
     startmonitor = args['startmonitor']
+    nodisplay = args['nodisplay']
 
 
 """
@@ -426,13 +428,14 @@ def urlCall(url, timelimit):
 def getDuetStatus(model):
     # Used to get the status information from Duet
     if model == 'rr_model':
-        URL = ('http://' + duet + '/rr_model?key=state.status')
+        URL = ('http://' + duet + '/rr_model?key=state')
         r = urlCall(URL, 5)
         if r.ok:
             try:
                 j = json.loads(r.text)
-                status = j['result']
-                return status
+                status = j['result']['status']
+                display = j['result']['displayMessage']
+                return status, display
             except:
                 pass
     else:
@@ -442,11 +445,12 @@ def getDuetStatus(model):
             try:
                 j = json.loads(r.text)
                 status = j['state']['status']
-                return status
-            except requests.exceptions.RequestException as e:
+                display = j['state']['displayMessage']
+                return status, display
+            except:
                 pass
     print('getDuetStatus failed to get data. Code: ' + str(r.status_code) + ' Reason: ' + str(r.reason))
-    return 'disconnected'
+    return 'disconnected', ''
 
 
 
@@ -469,10 +473,11 @@ def monitorLoop(apimodel):  # Run as a thread
     monitoring = True
     disconnected = 0
     lastDuetStatus = 'Not Monitoring'
+    lastdisplayMessage = ''
 
     while monitoring:  # action can be changed by httpListener or SIGINT or CTL+C
 
-        duetStatus = getDuetStatus(apimodel)
+        duetStatus, displayMessage = getDuetStatus(apimodel)
 
         if duetStatus == 'disconnected':  # provide some resiliency for temporary disconnects
             disconnected += 1
@@ -492,14 +497,29 @@ def monitorLoop(apimodel):  # Run as a thread
                 send_mail(FROM_ADDRESS,TO_ADDRESS,SUBJECT,MESSAGE)
                 return
 
-        if (duetStatus != lastDuetStatus) and (duetStatus in monitors):  # Send a message
-            SUBJECT = 'DuetMonitor: Status is ' + duetStatus
-            MESSAGE = ('DuetMonitor is watching the following status changes:  '+str(monitors) + '<br>Duet status changed from:  '+ lastDuetStatus + '  to:  '+ duetStatus)
+        SUBJECT = 'DuetMonitor:'
+        MESSAGE =  ''
+        duetStatusChange = False
+        if duetStatus != lastDuetStatus:
+            if monitors == 'all' or duetStatus in monitors:
+                SUBJECT = SUBJECT + '  Status is ' + duetStatus
+                MESSAGE = ('DuetMonitor is watching the following status changes:  ' + str(monitors) + '<br>Duet status changed<br>from:  ' + lastDuetStatus + '<br>to:  ' + duetStatus)
+                duetStatusChange = True
+
+        displayMessageChange = False
+        if lastdisplayMessage != displayMessage:
+            if not nodisplay:
+                SUBJECT = SUBJECT + '  Display Message changed'
+                MESSAGE = MESSAGE + '<br>Display Message is:<br>' + displayMessage
+                displayMessageChange = True
+
+        if duetStatusChange or displayMessageChange :  # Send a message
             print(MESSAGE.replace('<br>','\n'))
             send_mail(FROM_ADDRESS, TO_ADDRESS, SUBJECT, MESSAGE)
 
         if monitoring:  # If no longer monitoring - sleep is by-passed for speedier exit response
             lastDuetStatus = duetStatus
+            lastdisplayMessage = displayMessage
             time.sleep(poll)  # poll every n seconds - placed here to speeed startup
 
     SUBJECT = 'DuetMonitor: Monitoring has ben suspended'
