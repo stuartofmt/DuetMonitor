@@ -23,6 +23,7 @@ It is used to send an email from your gmail account to a recipient and intended 
 * You MUST have a gmail email account
 * You MUST have gathered additional credentials by following the instructions here:<br>
 https://github.com/stuartofmt/DuetMonitor/blob/master/GettingCredentials.md
+<br>**It is recommended that you do this before proceeding further.  There are several steps and it is important to follow them closely.  Screen shots have been provided but may change if google changes it's process.**
   
 
 ## Installation
@@ -54,13 +55,13 @@ https://github.com/stuartofmt/DuetMonitor/blob/master/SetupInstructions.md
 Once setup is complete - you will normally start DuetMonitor in one of the following ways.
 
 DuetMonitor requires a port number using the -port option  This is mandatory.<br>
-Other options for startup are described in the ##Options## section below.
+Other options for startup are described in the ##Startup Options## section below.
 
 DuetMonitor can be started from the command line or, more usually using systemctl (not available on Win10 or WSL) or equivalent
 .<br>
 It is usually run in the background.<br>
-Sample instructions for setting up using systemctl are here:<br>
-https://github.com/stuartofmt/DuetMonitor/blob/master/SetupInstructions.md
+A sample service file for use with systemctl is included  here:<br>
+https://github.com/stuartofmt/DuetMonitor/blob/master/DuetMonitor.service
 
 **Note that the program will send a system email confirming startup.**
 
@@ -95,13 +96,51 @@ An alternative if you are on Win10 is to use  Windows Subsystem for Linux (WSL) 
 
 ### Usage
 
-DuetMonitor is used by sending html - therefore it can be tested using a browser.  The normal use is intended to allow programs to send simple email messaged by invoking html.
+DuetMonitor is used by sending html - therefore it can be controlled using a browser.  The normal use is intended to allow programs to send simple email messaged by invoking html.
 The general form is as follows:
 ```
 http://<ipaddress>:<port>/?{instruction}[&{instruction}]
 ```
-The main instructions are:
 
+Command instructions can be used to start and stop monitoring and terminate DuetMonitor.
+If used with other instructions - the other instructions are ignored.
+
+Command options are:
+command=start
+command=stop
+command=terminate  - causes DuetMonitor to terminate<br>
+Examples:
+```
+http://localhost:8090/?command=start         # Starts monitoring from DuetMonitor on port 8090
+http://localhost:8090/?command=stop          # Stops monitoring from DuetMonitor on port 8090
+http://localhost:8090/?command=terminate     # Terminates DuetMonitor on port 8090
+```
+---
+**Note that the program will send an email message when these commands are used.**
+
+
+The main instructions are:
+- monitors={a list of valid Duet status}<br>
+The list is in parentheses with each item separated by a comma. Each item is enclosed in single quotes<br>
+Valid status values are 'halted', 'idle', 'busy', 'processing', 'paused' 'pausing', 'resuming', 'cancelled'
+You can also use 'all' to include all status values.<br>
+  
+Examples:
+```
+http://localhost:8090/?monitors=('all')                 # Send email on all status changes
+http://localhost:8090/?monitors=('idle', 'processing')  # Send email when printing starts / stops
+http://localhost:8090/?monitors=('paused')              # Only send email if the printer pauses.
+```
+
+- display={instructions}<br>
+Examples:
+```
+http://localhost:8090/?display=start # Send email on display message changes
+http://localhost:8090/?display=stop  # Ignore display message changes
+```
+If display is enabled - you can (for example) send an email using M117.
+
+---
 - To={a valid email address}
 
 - Subject={The email subject}
@@ -129,17 +168,9 @@ Example - send an email changing the To and Subject:
 http://localhost:8090/?To=someone@somewhere.com$Subject=New&Message=An email for you
 ```
 ---
-The following cn be used to remotely terminate DuetMonitor.  If used with other instructions - they are ignored (i.e. you cannot send an email and terminate in one instruction).
-**Note thatthe program will send a system email confirming that the program is terminated.**
 
-command=terminate  - causes DuetMonitor to terminate<br>
-Example:
-```
-http://localhost:8090/?command=terminate     #Will cause the instance of DuetMonitor on port 8090 to terminate
-```
----
 
-### Options
+### Startup Options
 
 Options can be viewed with
 ```
@@ -165,7 +196,25 @@ If the selected port is already in use the program will not start
 
 Example
 ```
--port 8082      #Causes internal http listener to start and listen on port 8082<br>
+-port 8090      #Causes internal http listener to start and listen on port 8090<br>
+```
+
+#### -duet [number]
+If omitted - the default is 15 seconds
+Sets the interval between polling Duet.  Do not set this too short as the Duet is not intended for high frequency polling.
+
+Example
+```
+-Subject A message from my Duet
+```
+
+#### -poll [number]
+If omitted - the default is 15 seconds
+Sets the interval between polling Duet.  Do not set this too short as the Duet is not intended for high frequency polling.
+
+Example
+```
+-Subject A message from my Duet
 ```
 
 #### -To [valid email address]
@@ -177,7 +226,31 @@ Example
 ```
 
 #### -Subject [String]
-If omitted - the default is 'Message from DuetMonitor'
+If omitted - the default is 'DuetMonitor:  Message'
+
+Example
+```
+-Subject A message from my Duet
+```
+
+#### -monitors [(list if strings)]
+If omitted - the default is 'DuetMonitor:  Message'
+
+Example
+```
+-Subject A message from my Duet
+```
+
+#### -startmonitor
+If omitted - the default is False
+
+Example
+```
+-Subject A message from my Duet
+```
+
+#### -nodisplay
+If omitted - the default is False
 
 Example
 ```

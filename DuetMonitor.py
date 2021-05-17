@@ -51,7 +51,7 @@ def init():
                         help='Specify the port on which the server listens. Default = 0')
     parser.add_argument('-To', type=str, nargs=1, default=[''],
                         help='To: email address. Default = Your gmail')
-    parser.add_argument('-Subject', type=str, nargs=1, default=['Message from DuetMonitor'],
+    parser.add_argument('-Subject', type=str, nargs=1, default=['DuetMonitor:  Message'],
                         help='email Subject:. Default = Message from DuetMonitor')
     parser.add_argument('-duet', type=str, nargs=1, default=['localhost'],
                         help='Name of duet or ip address. Default = localhost')
