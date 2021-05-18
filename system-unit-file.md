@@ -1,6 +1,6 @@
 # systemctl unit file example
  
-This document briefly describes setting up a unit file so that DuetMonitor will begin running after bootup.
+This document briefly describes setting up a unit file so that DuetMonitor will begin running after boot.
 It is accurate for Debian Buster but there may be differences for other distributions - so this document is only guidance.
 
 Download the example file<br>
@@ -25,7 +25,7 @@ WantedBy=multi-user.target
 Determine where your systemctl files are. Usually this will be somewhere like /lib/systemd/system.<br>
 This directory will be used in the following commands.
 
-If your distribution does not use this directory and you are unsure what it is - you can narrow down the options with:
+If your distribution does not use this directory, and you are unsure what it is - you can narrow down the options with:
 
 ```
 sudo find / -name system | grep systemd

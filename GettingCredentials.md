@@ -2,11 +2,11 @@
 ### This document guides you through the steps required to get the necessary google credentials for using gmail.
 
 
-###### You need to have already established a google account before proceeding
+###### You need to have already established a Google account before proceeding
 
-Note: The following steps assume a new Google Console user.  Some steps may not be neccessry if you already have settings in use.
+Note: The following steps assume a new Google Console user.  Some steps may not be necessary if you already have settings in use.
 
-Open Google Cloud Console and log in using your google account.
+Open Google Cloud Console and log in using your Google account.
     https://console.cloud.google.com/
 
 **Create a Project and enable Gmail APIs**
@@ -41,7 +41,7 @@ Open Google Cloud Console and log in using your google account.
    </p>
    
 **Enable OAuth Consent**    
-1.  On the left hand menu select Oauth Consent Screen.
+1.  On the left-hand menu select Oauth Consent Screen.
     <p align="center"> 
     <img src="https://github.com/stuartofmt/DuetMonitor/blob/master/images/OAuth1.PNG">
     </p>
@@ -75,7 +75,7 @@ Open Google Cloud Console and log in using your google account.
 
 **Get Credentials**
    
-1.  On the left hand menu select  Credentials.
+1.  On the left-hand menu select  Credentials.
     <p align="center"> 
     <img src="https://github.com/stuartofmt/DuetMonitor/blob/master/images/Creds1.PNG">
     </p>
@@ -103,6 +103,6 @@ Open Google Cloud Console and log in using your google account.
     </p>
 
 
-###### Congratulations - you now have the credentials necessary to setup your application
+###### Congratulations - you now have the credentials necessary to set up your application
 
 

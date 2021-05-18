@@ -673,7 +673,7 @@ if __name__ == '__main__':
         print('Setting up Credentials \n')
         GOOGLE_CLIENT_ID = input('\nEnter you google client id\n    The one you got from google console:  ')
         GOOGLE_CLIENT_SECRET = input ('\nEnter you google client secret\n    The one you got from google console:  ')
-        FROM_ADDRESS = input ('\nEnter you google email Id\n    The one you use to log into google:  ')
+        FROM_ADDRESS = input ('\nEnter you gmail address\n    The one you use to log into google:  ')
         if TO_ADDRESS == '': TO_ADDRESS = FROM_ADDRESS
         refresh_token, access_token, expires_in = get_authorization(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET)
 

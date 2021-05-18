@@ -1,20 +1,36 @@
 # DuetMonitor
 
-A monitor of Duet Status which sends change notifications emails via gmail.
-Can also be called with http (e.g. from a browser) to end an arbitrary message and to change subject and To address,
+This program allows monitoring of Duet status codes and display messages.<br>
 
+It runs in the background and periodically polls Duet looking for changes to the specified status values.  It can also monitor changes in display messages.<br>
 
+When it detects a change - it sends an email.  Changes are detected when entering AND leaving a status.  In this way - you can monitor a single status and detect changes to that status.  You can, of course, monitor multiple status.
 
+<br>DuetMonitor is designed to run continuously and can accept http commands to change settings.  Typically, you would use a browser but curl or other means of sending http can be used.<br>
+
+emails are sent from your gmail account to any recipient with a legal email address.  It is intended for short messages.
 
 ###Version 1.0.0
 [1]  Initial version
 
-
 ## General Description
 
-**DuetMonitor** designed to run continuously and accept http commands either from a browser, curl or other means of sending http get commands.<br>
-It is used to send an email from your gmail account to a recipient and intended for short messages.<br>
+The main capabilities include:
+1.  Send emails using your gmail address.
+2.  Can send to any legitimate email recipient.
+3.  Is controllable via a browser (or other http) interface (e.g. curl)
+4.  Is dynamically configurable for the status values that it monitors.
+5.  Reports if disconnected (> 2 sec) from Duet and stops monitoring.    
 
+Because it can also monitor display messages - you can embed M117 Messages in your gcode and macros (e.g. at the start and end of printing, at key points in a calibration macro) and receive an email in a customizable manner.
+
+DuetMonitor is intended to run constantly (if you wish) in the background.  From a http interface (e.g. browser) you can perform the following:
+1.  Start / Stop monitoring
+2.  Change the To: and Subject:
+3.  Change the status values being monitored
+4.  Send an email independently of monitoring
+
+The ability to just send an email (does not need to be monitoring) makes it useful in conjunction with other programs such as DueUI and BtnCmd and ....<br><br>
 
 ## Requirements 
 
@@ -23,14 +39,14 @@ It is used to send an email from your gmail account to a recipient and intended 
 * You MUST have a gmail email account
 * You MUST have gathered additional credentials by following the instructions here:<br>
 https://github.com/stuartofmt/DuetMonitor/blob/master/GettingCredentials.md
-<br>**It is recommended that you do this before proceeding further.  There are several steps and it is important to follow them closely.  Screen shots have been provided but may change if google changes it's process.**
+<br>**It is recommended that you do this before proceeding further.  There are several steps. It is important to follow them closely.  Screenshots have been provided but may change if google changes its process.**
   
 
 ## Installation
 
 For Linux:<br>
 
-cd to the a directory of your choice (It is usually simpler if this directory is only used for DuetMonitor
+cd to a directory of your choice.  It is usually simpler if this directory is only used for DuetMonitor.
 
 `wget https://github.com/stuartofmt/DuetMonitor/raw/main/DuetMonitor.py
 chmod 744 DuetMonitor.py
@@ -78,7 +94,7 @@ or if you plan to close the command console - use nohup
 nohup python3 ./DuetMonitor.py -port 8090 &
 ```
 
-On windows things are slightly different - note the use of pythonw
+On Windows things are slightly different - note the use of pythonw
 which will run python in the background (tested with python 3.9)
 
 Note the use of pythonw and the output files to check if everything was successful
@@ -181,7 +197,7 @@ python3 DuetMonitor.py -h
 ```
 The response will give the version number at the top.
 
-The options are described here.  Each option is preceded by a dash -. Some options have parameters described in the square brackets (the square brackets are NOT used in entering the options. If an option is not specified the default used.
+The options are described here.  Each option is preceded by a dash -. Some options have parameters described in the square brackets.   The square brackets are NOT used in entering the options. If an option is not specified, the default used.
 
 
 #### -host [ip address]
@@ -204,7 +220,8 @@ Example
 
 #### -duet [ip address]
 **Mandatory - This is a required option.**<br>
-The parameter is the network location of your duet printer. It can be given as a hostname or an explicit ip address. As a simple test - a browser should be able to access the Duet Web Controller using http:// from the same computer that is running DuetMonitor.py.
+The parameter is the network location of your duet printer. It can be given as a hostname, or an explicit ip address.
+As a simple test - a browser should be able to access the Duet Web Controller using http://[ip address] from the same computer that is running DuetMonitor.py.
 
   
 Example

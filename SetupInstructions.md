@@ -23,13 +23,13 @@ Enter you google client secret
     The one you got from google console:
 ```    
 
-3.  Your Google email ID (email address)
+3.  Your gmail address
 ```
-Enter you google email Id
+Enter you gmail address
     The one you use to log into google:
 ```    
 
-4. You will now be asked to navigate to a url in a browser in order to get a verification code.  Copy the link and paste it in a browser (highlighting the link performs a copy in many terminals.  Don't Ctl+C) 
+4. You will now be asked to navigate to an url in a browser in order to get a verification code.  Copy the link and paste it in a browser (highlighting the link performs a copy in many terminals.  Don't Ctl+C) 
 Note the link below is not a real link
 ```
  Navigate to the following URL to auth:
@@ -71,7 +71,7 @@ Note the link below is not a real link
 
  Enter verification code:
 ```
-2.  DuetMonitor will now attempt to send an email to you (from you).  It will look like this:
+2.  DuetMonitor will now attempt to send an email, to you (from you).  It will look like this:
    <p align="center">  
    <img src="https://github.com/stuartofmt/DuetMonitor/blob/master/images/Setup5.PNG">
    </p>
