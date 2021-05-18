@@ -49,9 +49,11 @@ For Linux:<br>
 
 cd to a directory of your choice.  It is usually simpler if this directory is only used for DuetMonitor.
 
-`wget https://github.com/stuartofmt/DuetMonitor/raw/main/DuetMonitor.py
+```
+wget https://github.com/stuartofmt/DuetMonitor/raw/main/DuetMonitor.py
+
 chmod 744 DuetMonitor.py
-`
+```
 
 For windows<br>
 Follow the instructions from one of the web sources to install python3 - for example:<br>
