@@ -1,5 +1,5 @@
 
-### This document guides you through the steps required to get the necessary google credentials for using gmail.
+### This document guides you through the steps required to get the necessary Google credentials for using gmail.
 
 ###### You need to have already established a Google account before proceeding
 
