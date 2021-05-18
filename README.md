@@ -55,6 +55,7 @@ wget https://github.com/stuartofmt/DuetMonitor/raw/master/DuetMonitor.py
 chmod 744 DuetMonitor.py
 ```
 
+
 For windows<br>
 Follow the instructions from one of the web sources to install python3 - for example:<br>
 https://docs.python.org/3/using/windows.html 
