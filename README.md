@@ -132,13 +132,13 @@ http://localhost:8090/?monitors=('idle', 'processing')  # Send email when printi
 http://localhost:8090/?monitors=('paused')              # Only send email if the printer pauses.
 ```
 
-- display={instructions}<br>
+- nodisplay={instructions}<br>
 Examples:
 ```
-http://localhost:8090/?display=start # Send email on display message changes
-http://localhost:8090/?display=stop  # Ignore display message changes
+http://localhost:8090/?nodisplay=False # Send email on display message changes
+http://localhost:8090/?nodisplay=True  # Ignore display message changes
 ```
-If display is enabled - you can (for example) send an email using M117.
+If display is on - you can (for example) send an email using M117.
 
 ---
 - To={a valid email address}
@@ -234,11 +234,12 @@ Example
 ```
 
 #### -monitors [(list if strings)]
-If omitted - the default is 'DuetMonitor:  Message'
+If omitted - the default is: all
 
 Example
 ```
--Subject A message from my Duet
+-monitors idle busy processing  # will monitor only these status
+                                # Not that these values are not quoted
 ```
 
 #### -startmonitor

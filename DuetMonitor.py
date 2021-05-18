@@ -14,7 +14,7 @@ https://blog.macuyiko.com/post/2016/how-to-send-html-mails-with-oauth2-and-gmail
 """
 
 DuetMonitorVersion = '1.0.0'
-
+validStatusValues = ('all', 'halted', 'idle', 'busy', 'processing', 'paused', 'pausing', 'resuming')
 
 import base64
 import zlib
@@ -56,7 +56,7 @@ def init():
     parser.add_argument('-duet', type=str, nargs=1, default=['localhost'],
                         help='Name of duet or ip address. Default = localhost')
     parser.add_argument('-poll', type=float, nargs=1, default=[15])
-    parser.add_argument('-monitors', type=str, nargs=1, default=[('all')],
+    parser.add_argument('-monitors', nargs='+', default=['all',],
                         help='Status to monitor. Default = all')
     parser.add_argument('-startmonitor', action='store_true', help='Default = start monitoring')
     parser.add_argument('-nodisplay', action='store_true', help='Default = display Messages')
@@ -70,9 +70,20 @@ def init():
     SUBJECT = args['Subject'][0]
     duet = args['duet'][0]
     poll = args['poll'][0]
-    monitors = args['monitors'][0]
+    monitors = args['monitors']
     startmonitor = args['startmonitor']
     nodisplay = args['nodisplay']
+
+    validvalue = True
+    for item in monitors:
+        if not item in validStatusValues:
+            print('\nInvalid Status used: ' + item)
+            validvalue = False
+
+    if not validvalue:
+        print('\nOne or more invalid values in : ' + str(monitors))
+        print('Valid values are: : ' + str(validStatusValues))
+        print('\nmonitors will be set to: all')
 
 
 """
@@ -223,7 +234,7 @@ class MyHandler(SimpleHTTPRequestHandler):
         return content.encode("utf8")  # NOTE: must return a bytes object!
 
     def do_GET(self):
-        global TO_ADDRESS, SUBJECT, monitoring, monitors
+        global TO_ADDRESS, SUBJECT, monitoring, monitors, nodisplay
 
         if 'favicon.ico' in self.path:
             return
@@ -232,9 +243,7 @@ class MyHandler(SimpleHTTPRequestHandler):
         tochange = subjectchange = cmdmsg = ''
         
         query_components = parse_qs(urlparse(self.path).query)
-        
-        
-        
+
         if query_components.get('command'):
             cmd = query_components['command'][0]
                                     
@@ -266,10 +275,43 @@ class MyHandler(SimpleHTTPRequestHandler):
                 cmdmsg = ''.join(txt)
 
         if query_components.get('monitors'):
-            monitors = query_components['monitors'][0]
-            txt = []
-            txt.append('Monitors have been set to: '+str(monitors))
-            cmdmsg = ''.join(txt)
+            value = query_components['monitors'][0]
+            validvalue = True
+            invalid = ''
+            for item in value:
+                if not item in validStatusValues:
+                    invalid = invalid + item + ' , '   # will always have trailing comma - get rid of if used later
+                    validvalue = False
+
+            if validvalue:
+                monitors = value
+                txt = []
+                txt.append('Monitors have been set to: '+str(monitors))
+                cmdmsg = ''.join(txt)
+            else:
+                txt = []
+                txt.append('The following invalid values were detected<br>')
+                invalid = invalid[:-len(' , ')]            #just get rid of the trailing comma
+                txt.append('<br>Valid values are: : ' + str(validStatusValues))
+                cmdmsg = ''.join(txt)
+
+        if query_components.get('nodisplay'):
+            value = query_components['nodisplay'][0]
+            if value == 'True':
+                nodisplay = True
+                txt = []
+                txt.append('display Messages will not be monitored')
+                cmdmsg = ''.join(txt)
+            elif value == 'False':
+                nodisplay = False
+                txt = []
+                txt.append('display Messages will be monitored')
+                cmdmsg = ''.join(txt)
+            else:
+                txt = []
+                txt.append('Invalid value for nodisplay :  ')
+                txt.append('<br>Can be either True or False)')
+                cmdmsg = ''.join(txt)
 
         if query_components.get('To'):
             TO_ADDRESS = query_components['To'][0]
@@ -335,7 +377,7 @@ def getDuetVersion():
         r = urlCall(URL, 5)
         j = json.loads(r.text)
         version = j['result'][0]['firmwareVersion']
-        return 'rr_model', version;
+        return 'rr_model', version
     except:
         try:
             model = '/machine/system'
@@ -343,9 +385,9 @@ def getDuetVersion():
             r = urlCall(URL, 5)
             j = json.loads(r.text)
             version = j['boards'][0]['firmwareVersion']
-            return 'SBC', version;
+            return 'SBC', version
         except:
-            return 'none', '0';
+            return 'none', '0'
 
 def connectDuet():
     connected = False
@@ -501,16 +543,16 @@ def monitorLoop(apimodel):  # Run as a thread
         MESSAGE =  ''
         duetStatusChange = False
         if duetStatus != lastDuetStatus:
-            if monitors == 'all' or duetStatus in monitors:
+            if (monitors == 'all') or (duetStatus in monitors) or (lastDuetStatus in monitors):  #triggers on entering and leaving state
                 SUBJECT = SUBJECT + '  Status is ' + duetStatus
-                MESSAGE = ('DuetMonitor is watching the following status changes:  ' + str(monitors) + '<br>Duet status changed<br>from:  ' + lastDuetStatus + '<br>to:  ' + duetStatus)
+                MESSAGE = ('DuetMonitor is watching the following status changes:  ' + str(monitors) + '<br><br>Duet status changed from:  ' + lastDuetStatus + '  to:  ' + duetStatus)
                 duetStatusChange = True
 
         displayMessageChange = False
         if lastdisplayMessage != displayMessage:
             if not nodisplay:
                 SUBJECT = SUBJECT + '  Display Message changed'
-                MESSAGE = MESSAGE + '<br>Display Message is:<br>' + displayMessage
+                MESSAGE = MESSAGE + '<br><br>Display Message is:  ' + displayMessage
                 displayMessageChange = True
 
         if duetStatusChange or displayMessageChange :  # Send a message
