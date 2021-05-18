@@ -62,6 +62,9 @@ DuetMonitor can be started from the command line or, more usually using systemct
 It is usually run in the background.<br>
 A sample service file for use with systemctl is included  here:<br>
 https://github.com/stuartofmt/DuetMonitor/blob/master/DuetMonitor.service
+<br>Instructions for using are here:<br>
+https://github.com/stuartofmt/DuetMonitor/blob/master/system-unit-file.md
+
 
 **Note that the program will send a system email confirming startup.**
 
@@ -191,7 +194,7 @@ Example
 ```
 
 #### -port [port number]
-This option is mandatory.<br>
+**Mandatory - This is a required option.** <br>
 If the selected port is already in use the program will not start
 
 Example
@@ -199,13 +202,16 @@ Example
 -port 8090      #Causes internal http listener to start and listen on port 8090<br>
 ```
 
-#### -duet [number]
-If omitted - the default is 15 seconds
-Sets the interval between polling Duet.  Do not set this too short as the Duet is not intended for high frequency polling.
+#### -duet [ip address]
+**Mandatory - This is a required option.**<br>
+The parameter is the network location of your duet printer. It can be given as a hostname or an explicit ip address. As a simple test - a browser should be able to access the Duet Web Controller using http:// from the same computer that is running DuetMonitor.py.
 
+  
 Example
 ```
--Subject A message from my Duet
+-duet 192.168.1.10     #Connect to the printer at 192.168.86.10
+
+-duet localhost        #Connect to the printer at localhost
 ```
 
 #### -poll [number]
@@ -214,7 +220,7 @@ Sets the interval between polling Duet.  Do not set this too short as the Duet i
 
 Example
 ```
--Subject A message from my Duet
+-poll  60   #polls for status every minute
 ```
 
 #### -To [valid email address]
@@ -247,7 +253,7 @@ If omitted - the default is False
 
 Example
 ```
--Subject A message from my Duet
+-startmonitor    # starts monitoring when DuetMonitor.py is started
 ```
 
 #### -nodisplay
@@ -255,5 +261,5 @@ If omitted - the default is False
 
 Example
 ```
--Subject A message from my Duet
+-nodisplay  # Does not monitor changes to display Messages
 ```
