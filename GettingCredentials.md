@@ -1,7 +1,6 @@
 
 ### This document guides you through the steps required to get the necessary google credentials for using gmail.
 
-
 ###### You need to have already established a Google account before proceeding
 
 Note: The following steps assume a new Google Console user.  Some steps may not be necessary if you already have settings in use.

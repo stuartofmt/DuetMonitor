@@ -1,5 +1,6 @@
 ### This document guides you through the initial setup of DuetMonitor
 
+
 From the directory where you installed DuetMonitor.py start it using the following command
 ```
 python3 ./DuetMonitor.py

@@ -1,4 +1,5 @@
 #!python3
+
 """
 Simple HTTP server for monitoring Duet Status and sending change notifications emails via gmail.
 Copyright (C) 2021 Stuart Strolin all rights reserved.
