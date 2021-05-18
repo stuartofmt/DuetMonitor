@@ -1,0 +1,11 @@
+[Unit]
+Description=DuetMonitor Service
+After=multi-user.target
+[Service]
+WorkingDirectory=/home/pi/DuetMonitor
+User=pi
+Type=idle
+ExecStart=python3 /home/pi/DuetMonitor/DuetMonitor.py -duet 192.168.1.2 -port 8090 -monitors processing halted
+Restart=always
+[Install]
+WantedBy=multi-user.target
