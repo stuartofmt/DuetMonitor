@@ -5,7 +5,7 @@ This document briefly describes setting up a unit file so that DuetMonitor will 
 It is accurate for Debian Buster but there may be differences for other distributions - so this document is only guidance.
 
 Download the example file<br>
-wget https://github.com/stuartofmt/DuetMonitor/raw/main/DuetMonitor.service
+wget https://github.com/stuartofmt/DuetMonitor/raw/master/DuetMonitor.service
 
 Edit the example file paying particular attention to the following comments:
 

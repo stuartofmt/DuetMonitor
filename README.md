@@ -50,7 +50,7 @@ For Linux:<br>
 cd to a directory of your choice.  It is usually simpler if this directory is only used for DuetMonitor.
 
 ```
-wget https://github.com/stuartofmt/DuetMonitor/raw/main/DuetMonitor.py
+wget https://github.com/stuartofmt/DuetMonitor/raw/master/DuetMonitor.py
 
 chmod 744 DuetMonitor.py
 ```
