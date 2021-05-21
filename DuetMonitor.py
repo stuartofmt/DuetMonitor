@@ -14,7 +14,7 @@ https://blog.macuyiko.com/post/2016/how-to-send-html-mails-with-oauth2-and-gmail
 
 """
 
-DuetMonitorVersion = '1.0.0'
+DuetMonitorVersion = '1.0.1'
 validStatusValues = ('all', 'halted', 'idle', 'busy', 'processing', 'paused', 'pausing', 'resuming')
 
 import base64
@@ -61,9 +61,10 @@ def init():
                         help='Status to monitor. Default = all')
     parser.add_argument('-startmonitor', action='store_true', help='Default = start monitoring')
     parser.add_argument('-nodisplay', action='store_true', help='Default = display Messages')
+    parser.add_argument('-noerror', action='store_true', help='Default = display error Messages')
     args = vars(parser.parse_args())
 
-    global host, port, TO_ADDRESS, SUBJECT, duet, poll, monitors, startmonitor, nodisplay
+    global host, port, TO_ADDRESS, SUBJECT, duet, poll, monitors, startmonitor, nodisplay, noerror
 
     host = args['host'][0]
     port = args['port'][0]  
@@ -74,6 +75,7 @@ def init():
     monitors = args['monitors']
     startmonitor = args['startmonitor']
     nodisplay = args['nodisplay']
+    nodisplay = args['noerror']
 
     validvalue = True
     for item in monitors:
@@ -235,7 +237,7 @@ class MyHandler(SimpleHTTPRequestHandler):
         return content.encode("utf8")  # NOTE: must return a bytes object!
 
     def do_GET(self):
-        global TO_ADDRESS, SUBJECT, monitoring, monitors, nodisplay, DuetMonitorVersion
+        global TO_ADDRESS, SUBJECT, monitoring, monitors, nodisplay, noerror, DuetMonitorVersion
 
         if 'favicon.ico' in self.path:
             return
@@ -311,6 +313,24 @@ class MyHandler(SimpleHTTPRequestHandler):
             else:
                 txt = []
                 txt.append('Invalid value for nodisplay :  ')
+                txt.append('<br>Can be either True or False)')
+                cmdmsg = ''.join(txt)
+
+        if query_components.get('noerror'):
+            value = query_components['noerror'][0]
+            if value == 'True':
+                noerror = True
+                txt = []
+                txt.append('error Messages will not be monitored')
+                cmdmsg = ''.join(txt)
+            elif value == 'False':
+                noerror = False
+                txt = []
+                txt.append('error Messages will be monitored')
+                cmdmsg = ''.join(txt)
+            else:
+                txt = []
+                txt.append('Invalid value for noerror :  ')
                 txt.append('<br>Can be either True or False)')
                 cmdmsg = ''.join(txt)
 
@@ -479,7 +499,8 @@ def getDuetStatus(model):
                 j = json.loads(r.text)
                 status = j['result']['status']
                 display = j['result']['displayMessage']
-                return status, display
+                msg = '' # Not available in Standalone
+                return status, display, msg
             except:
                 pass
     else:
@@ -490,7 +511,8 @@ def getDuetStatus(model):
                 j = json.loads(r.text)
                 status = j['state']['status']
                 display = j['state']['displayMessage']
-                return status, display
+                msg = j['messages']
+                return status, display, msg
             except:
                 pass
     print('getDuetStatus failed to get data. Code: ' + str(r.status_code) + ' Reason: ' + str(r.reason))
@@ -521,7 +543,7 @@ def monitorLoop(apimodel):  # Run as a thread
 
     while monitoring:  # action can be changed by httpListener or SIGINT or CTL+C
 
-        duetStatus, displayMessage = getDuetStatus(apimodel)
+        duetStatus, displayMessage, errorMessage = getDuetStatus(apimodel)
 
         if duetStatus == 'disconnected':  # provide some resiliency for temporary disconnects
             disconnected += 1
@@ -535,9 +557,10 @@ def monitorLoop(apimodel):  # Run as a thread
                 print(
                         '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
                 print('')
-                monitoring = False
+                monitoring = False   # Maybe this needs to be a selectable action
                 SUBJECT = 'DuetMonitor:  Duet has disconnected'
-                MESSAGE = 'The printer at ' +duet + 'was disconnected from DuetMonitor for too long <br>Monitoring has been stopped'
+                MESSAGE = 'The printer at ' +duet + 'was disconnected from DuetMonitor for too long <br>Monitoring has been stopped<br>'
+                MESSAGE = MESSAGE + 'To restart monitoring you need to send http://[your DuetMonitor ip:port]/?command=start'
                 send_mail(FROM_ADDRESS,TO_ADDRESS,SUBJECT,MESSAGE)
                 return
 
@@ -548,6 +571,7 @@ def monitorLoop(apimodel):  # Run as a thread
             if (monitors == 'all') or (duetStatus in monitors) or (lastDuetStatus in monitors):  #triggers on entering and leaving state
                 SUBJECT = SUBJECT + '  Status is ' + duetStatus
                 MESSAGE = ('DuetMonitor is watching the following status changes:  ' + str(monitors) + '<br><br>Duet status changed from:  ' + lastDuetStatus + '  to:  ' + duetStatus)
+                lastDuetStatus = duetStatus
                 duetStatusChange = True
 
         displayMessageChange = False
@@ -555,16 +579,23 @@ def monitorLoop(apimodel):  # Run as a thread
             if not nodisplay:
                 SUBJECT = SUBJECT + '  Display Message changed'
                 MESSAGE = MESSAGE + '<br><br>Display Message is:  ' + displayMessage
+                lastdisplayMessage = displayMessage
                 displayMessageChange = True
 
-        if duetStatusChange or displayMessageChange :  # Send a message
+        errorMessageChange = False
+        if lasterrorMessage != errorMessage:
+            if not noerror:
+                SUBJECT = SUBJECT + '  Error Message changed'
+                MESSAGE = MESSAGE + '<br><br>Error Message is:  ' + errorMessage
+                lasterrorMessage = errorMessage
+                errorMessageChange = True
+
+        if duetStatusChange or displayMessageChange or errorMessageChange :  # Send a message
             print(MESSAGE.replace('<br>','\n'))
             send_mail(FROM_ADDRESS, TO_ADDRESS, SUBJECT, MESSAGE)
 
         if monitoring:  # If no longer monitoring - sleep is by-passed for speedier exit response
-            lastDuetStatus = duetStatus
-            lastdisplayMessage = displayMessage
-            time.sleep(poll)  # poll every n seconds - placed here to speeed startup
+            time.sleep(poll)  # poll every n seconds - placed here to speed startup
 
     SUBJECT = 'DuetMonitor: Monitoring has ben suspended'
     MESSAGE = 'Monitoring has been suspended as a result of a user request <br>DuetMonitor is still running'
