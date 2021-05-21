@@ -235,7 +235,7 @@ class MyHandler(SimpleHTTPRequestHandler):
         return content.encode("utf8")  # NOTE: must return a bytes object!
 
     def do_GET(self):
-        global TO_ADDRESS, SUBJECT, monitoring, monitors, nodisplay
+        global TO_ADDRESS, SUBJECT, monitoring, monitors, nodisplay, DuetMonitorVersion
 
         if 'favicon.ico' in self.path:
             return
@@ -349,8 +349,9 @@ class MyHandler(SimpleHTTPRequestHandler):
          
         else:
             txt = []
-            txt.append('Information Message. <br><br>')
+            txt.append('Information Message.<br> DuetMonitor Version:  '+ DuetMonitorVersion +'<br><br>')
             response=''.join(txt)
+
             
         self._set_headers()
         self.wfile.write(self._html(response+tochange+subjectchange+cmdmsg))
