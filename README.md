@@ -236,12 +236,12 @@ Example
 ```
 
 #### -poll [number]
-If omitted - the default is 15 seconds
+If omitted - the default is 60 seconds
 Sets the interval between polling Duet.  Do not set this too short as the Duet is not intended for high frequency polling.
 
 Example
 ```
--poll  60   #polls for status every minute
+-poll  120   #polls for status every 2 minutes
 ```
 
 #### -To [valid email address]

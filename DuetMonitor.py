@@ -56,7 +56,7 @@ def init():
                         help='email Subject:. Default = Message from DuetMonitor')
     parser.add_argument('-duet', type=str, nargs=1, default=['localhost'],
                         help='Name of duet or ip address. Default = localhost')
-    parser.add_argument('-poll', type=float, nargs=1, default=[15])
+    parser.add_argument('-poll', type=float, nargs=1, default=[60])
     parser.add_argument('-monitors', nargs='+', default=['all',],
                         help='Status to monitor. Default = all')
     parser.add_argument('-startmonitor', action='store_true', help='Default = start monitoring')
@@ -458,7 +458,7 @@ def urlCall(url, timelimit):
             print('')
             loop += 1
             error = 'Timed Out'
-        time.sleep(1)
+        time.sleep(poll)
 
     if loop >= limit:  # Create dummy response
         class r:
