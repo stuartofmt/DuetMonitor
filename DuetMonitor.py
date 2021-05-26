@@ -14,9 +14,6 @@ https://blog.macuyiko.com/post/2016/how-to-send-html-mails-with-oauth2-and-gmail
 
 """
 
-DuetMonitorVersion = '1.0.1'
-validStatusValues = ('all', 'none', 'halted', 'idle', 'busy', 'processing', 'paused', 'pausing', 'resuming')
-
 import base64
 import zlib
 from base64 import urlsafe_b64encode as b64e, urlsafe_b64decode as b64d
@@ -35,6 +32,10 @@ import socket
 import threading
 import time
 import requests
+
+
+DuetMonitorVersion = '1.0.1'
+validStatusValues = ('all', 'none', 'halted', 'idle', 'busy', 'processing', 'paused', 'pausing', 'resuming')
 
 GOOGLE_ACCOUNTS_BASE_URL = 'https://accounts.google.com'
 REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
@@ -57,7 +58,7 @@ def init():
     parser.add_argument('-duet', type=str, nargs=1, default=['localhost'],
                         help='Name of duet or ip address. Default = localhost')
     parser.add_argument('-poll', type=float, nargs=1, default=[60])
-    parser.add_argument('-monitors', nargs='+', default=['all',],
+    parser.add_argument('-monitors', nargs='+', default=['all'],
                         help='Status to monitor. Default = all')
     parser.add_argument('-dontstart', action='store_true', help='Default = start monitoring')
     parser.add_argument('-nodisplaymessages', action='store_true', help='Default = display Messages')
@@ -77,13 +78,12 @@ def init():
     displaymessages = not args['nodisplaymessages']
     errormessages = not args['noerrormessages']
 
-
     if errormessages and poll > 6:  # Reporting on (error) message so must poll at least every 8 sec
         poll = 6                  # Use 6 sec to be safe and allow for syn delays e.g. calling gmail
 
     validvalue = True
     for item in monitors:
-        if not item in validStatusValues:
+        if item not in validStatusValues:
             print('\nInvalid Status used: ' + item)
             validvalue = False
         if item == 'none':
@@ -92,8 +92,8 @@ def init():
             break
 
     if not validvalue:
-        print('\nOne or more invalid values in : ' + str(monitors))
-        print('\nValid values are: : ' + str(validStatusValues))
+        print('\nOne or more invalid values in : ' + ','.join(monitors))
+        print('\nValid values are: : ' + ','.join(validStatusValues))
         print('\nStatus changes will NOT be monitored')
         monitors = 'none'
 
@@ -300,13 +300,13 @@ class MyHandler(SimpleHTTPRequestHandler):
             if validvalue:
                 monitors = value
                 txt = []
-                txt.append('<br>Monitors have been set to: '+str(monitors))
+                txt.append('<br>Monitors have been set to: ' + ','.join(monitors))
                 cmdmsg = cmdmsg + ''.join(txt)
             else:
                 invalid = invalid[:-len(' , ')]            #just get rid of the trailing comma
                 txt = []
                 txt.append('<br>The following invalid values were detected:  ' + invalid+ '<br>')
-                txt.append('<br>Valid values are:  ' + str(validStatusValues))
+                txt.append('<br>Valid values are:  ' + ','.join(validStatusValues))
                 txt.append('<br>monitors were not changed')
                 cmdmsg = cmdmsg + ''.join(txt)
 
@@ -377,7 +377,7 @@ class MyHandler(SimpleHTTPRequestHandler):
 
                 SUBJECT = SUBJECTPRE
                 MESSAGE = '<br>' + MESSAGE
-                send_mail(FROM_ADDRESS,TO_ADDRESS,SUBJECT,MESSAGE)
+                send_mail(FROM_ADDRESS, TO_ADDRESS, SUBJECT, MESSAGE)
             else:
                 txt = []
                 txt.append('<br>Cannot send a blank message. <br>')
@@ -390,7 +390,7 @@ class MyHandler(SimpleHTTPRequestHandler):
         txt.append('<br>To =&nbsp;&nbsp;' + TO_ADDRESS)
         txt.append('<br>General Settings')
         txt.append('<br>Monitoring =&nbsp;&nbsp;' + str(monitoring))
-        txt.append('<br>Monitors =&nbsp;&nbsp;' + str(monitors))
+        txt.append('<br>Monitors =&nbsp;&nbsp;' + ','.join(monitors))
         txt.append('<br>Monitor display messages =&nbsp;&nbsp;' + str(displaymessages))
         txt.append('<br>Monitor error messages =&nbsp;&nbsp;' + str(errormessages))
         txt.append('<br>Polling interval (sec) =&nbsp;&nbsp;' + str(poll))
@@ -622,7 +622,7 @@ def monitorLoop(apimodel):  # Run as a thread
         if (duetStatus != lastDuetStatus) and (duetStatus != ''):
             if ('all' in monitors) or (duetStatus in monitors) or (lastDuetStatus in monitors):  #triggers on entering and leaving state
                 SUBJECT = SUBJECT + '  Status is ' + duetStatus
-                MESSAGE = ('<br>DuetMonitor is watching the following status changes:  ' + str(monitors) + '<br><br>Duet status changed from:  ' + lastDuetStatus + '  to:  ' + duetStatus)
+                MESSAGE = ('<br>DuetMonitor is watching the following status changes:  ' + ','.join(monitors) + '<br><br>Duet status changed from:  ' + lastDuetStatus + '  to:  ' + duetStatus)
                 lastDuetStatus = duetStatus
                 duetStatusChange = True
 
