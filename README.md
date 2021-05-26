@@ -11,9 +11,11 @@ When it detects a change - it sends an email.  Changes are detected when enterin
 emails are sent from your gmail account to any recipient with a legal email address.  It is intended for short messages.
 
 ###Version 1.0.0
+
 [1]  Initial version
 
 ###Version 1.0.1
+
 [1]  Added monitoring of error messages
 
 [2]  Added additional Controls
