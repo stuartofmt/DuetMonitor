@@ -60,11 +60,11 @@ def init():
     parser.add_argument('-monitors', nargs='+', default=['all',],
                         help='Status to monitor. Default = all')
     parser.add_argument('-startmonitor', action='store_true', help='Default = start monitoring')
-    parser.add_argument('-nodisplay', action='store_true', help='Default = display Messages')
-    parser.add_argument('-noerror', action='store_true', help='Default = display error Messages')
+    parser.add_argument('-nodisplaymessage', action='store_true', help='Default = display Messages')
+    parser.add_argument('-noerrormessage', action='store_true', help='Default = display error Messages')
     args = vars(parser.parse_args())
 
-    global host, port, TO_ADDRESS, SUBJECT, duet, poll, monitors, startmonitor, nodisplay, noerror
+    global host, port, TO_ADDRESS, SUBJECT, duet, poll, monitors, startmonitor, nodisplaymessage, noerrormessage
 
     host = args['host'][0]
     port = args['port'][0]  
@@ -74,11 +74,11 @@ def init():
     poll = args['poll'][0]
     monitors = args['monitors']
     startmonitor = args['startmonitor']
-    nodisplay = args['nodisplay']
-    noerror = args['noerror']
+    nodisplaymessage = args['nodisplaymessage']
+    noerrormessage = args['noerrormessage']
 
 
-    if not noerror and poll > 6:  # Reporting on (error) message so must poll at least every 8 sec
+    if not noerrormessage and poll > 6:  # Reporting on (error) message so must poll at least every 8 sec
         poll = 6                  # Use 6 sec to be safe and allow for syn delays e.g. calling gmail
 
     validvalue = True
@@ -245,7 +245,7 @@ class MyHandler(SimpleHTTPRequestHandler):
         return content.encode("utf8")  # NOTE: must return a bytes object!
 
     def do_GET(self):
-        global TO_ADDRESS, SUBJECT, monitoring, monitors, nodisplay, noerror, DuetMonitorVersion
+        global TO_ADDRESS, SUBJECT, monitoring, monitors, nodisplaymessage, noerrormessage, DuetMonitorVersion
 
         if 'favicon.ico' in self.path:
             return
@@ -317,40 +317,40 @@ class MyHandler(SimpleHTTPRequestHandler):
                 txt.append('<br>Current monitors are unchanged:  ' + str(monitors))
                 cmdmsg = ''.join(txt)
 
-        if query_components.get('nodisplay'):
-            value = query_components['nodisplay'][0]
-            print('nodisplay = ' + value)
+        if query_components.get('nodisplaymessage'):
+            value = query_components['nodisplaymessage'][0]
+            print('nodisplaymessage = ' + value)
             if value == 'True':
-                nodisplay = True
+                nodisplaymessage = True
                 txt = []
                 txt.append('display Messages will not be monitored')
                 cmdmsg = ''.join(txt)
             elif value == 'False':
-                nodisplay = False
+                nodisplaymessage = False
                 txt = []
                 txt.append('display Messages will be monitored')
                 cmdmsg = ''.join(txt)
             else:
                 txt = []
-                txt.append('Invalid value for nodisplay :  ')
+                txt.append('Invalid value for nodisplaymessage :  ')
                 txt.append('<br>Can be either True or False)')
                 cmdmsg = ''.join(txt)
 
-        if query_components.get('noerror'):
-            value = query_components['noerror'][0]
+        if query_components.get('noerrormessage'):
+            value = query_components['noerrormessage'][0]
             if value == 'True':
-                noerror = True
+                noerrormessage = True
                 txt = []
                 txt.append('error Messages will not be monitored')
                 cmdmsg = ''.join(txt)
             elif value == 'False':
-                noerror = False
+                noerrormessage = False
                 txt = []
                 txt.append('error Messages will be monitored')
                 cmdmsg = ''.join(txt)
             else:
                 txt = []
-                txt.append('Invalid value for noerror :  ')
+                txt.append('Invalid value for noerrormessage :  ')
                 txt.append('<br>Can be either True or False)')
                 cmdmsg = ''.join(txt)
 
@@ -504,13 +504,13 @@ def urlCall(url, timelimit):
 
 
 def getDuetStatus(model):
-    global lastseqsreply, noerror, nodisplay
+    global lastseqsreply, noerrormessage, nodisplaymessage
     status = display = msg = ''
     # Used to get the status information from Duet
     if model == 'rr_model':
         print(not 'none' in monitors)
-        print(not nodisplay)
-        if (not 'none' in monitors) or (not nodisplay):  # we need to check
+        print(not nodisplaymessage)
+        if (not 'none' in monitors) or (not nodisplaymessage):  # we need to check
             print('Checking status')
             URL = ('http://' + duet + '/rr_model?key=state')
             r = urlCall(URL, 5)
@@ -523,7 +523,7 @@ def getDuetStatus(model):
                 except:
                     pass
 
-        if not noerror:   #Test here since so we do not make unnecessary calls
+        if not noerrormessage:   #Test here since so we do not make unnecessary calls
             try:
                 URL = ('http://' + duet + '/rr_model?flags=f&key=seqs.reply')
                 r = urlCall(URL, 5)
@@ -622,7 +622,7 @@ def monitorLoop(apimodel):  # Run as a thread
 
         displayMessageChange = False
         if (lastdisplayMessage != displayMessage) and (displayMessage != ''):
-            if not nodisplay:
+            if not nodisplaymessage:
                 SUBJECT = SUBJECT + '  Display Message changed'
                 MESSAGE = MESSAGE + '<br><br>Display Message is:  ' + displayMessage
                 lastdisplayMessage = displayMessage
@@ -630,7 +630,7 @@ def monitorLoop(apimodel):  # Run as a thread
 
         errorMessageChange = False
         if (lasterrorMessage != errorMessage) and (errorMessage != ''):
-            if not noerror:
+            if not noerrormessage:
                 SUBJECT = SUBJECT + '  Error Message changed'
                 MESSAGE = MESSAGE + '<br><br>Error Message is:  ' + errorMessage
                 lasterrorMessage = errorMessage
