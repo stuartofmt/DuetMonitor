@@ -289,6 +289,7 @@ Example
 
 #### -monitors [(list if strings)]
 If omitted - the default is: all
+Note that if you provide a list they are NOT separated by comma
 
 Example
 ```

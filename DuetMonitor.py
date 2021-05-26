@@ -791,7 +791,6 @@ if __name__ == '__main__':
     thisinstancepid = os.getpid()  #Get the pid for later use in shutdown
 
     #Start the http Listener
-
     if (port != 0):
         try:
             sock = socket.socket()
