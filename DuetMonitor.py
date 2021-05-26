@@ -15,7 +15,7 @@ https://blog.macuyiko.com/post/2016/how-to-send-html-mails-with-oauth2-and-gmail
 """
 
 DuetMonitorVersion = '1.0.1'
-validStatusValues = ('all', 'halted', 'idle', 'busy', 'processing', 'paused', 'pausing', 'resuming')
+validStatusValues = ('all', 'none', 'halted', 'idle', 'busy', 'processing', 'paused', 'pausing', 'resuming')
 
 import base64
 import zlib
@@ -75,19 +75,27 @@ def init():
     monitors = args['monitors']
     startmonitor = args['startmonitor']
     nodisplay = args['nodisplay']
-    nodisplay = args['noerror']
+    noerror = args['noerror']
+
+
+    if not noerror and poll > 6:  # Reporting on (error) message so must poll at least every 8 sec
+        poll = 6                  # Use 6 sec to be safe and allow for syn delays e.g. calling gmail
 
     validvalue = True
     for item in monitors:
         if not item in validStatusValues:
             print('\nInvalid Status used: ' + item)
             validvalue = False
+        if item == 'none':
+            monitors = item
+            print('Status changes will NOT be monitored')
+            break
 
     if not validvalue:
         print('\nOne or more invalid values in : ' + str(monitors))
-        print('Valid values are: : ' + str(validStatusValues))
-        print('\nmonitors will be set to: all')
-
+        print('\nValid values are: : ' + str(validStatusValues))
+        print('\nStatus changes will NOT be monitored')
+        monitors = 'none'
 
 """
 Auth and google related functions adapted from:
@@ -242,14 +250,18 @@ class MyHandler(SimpleHTTPRequestHandler):
         if 'favicon.ico' in self.path:
             return
 
-        MESSAGE = ''
-        tochange = subjectchange = cmdmsg = ''
+        MESSAGE = tochange = subjectchange = cmdmsg = ''
+
+        txt = []
+        txt.append('Information Message.<br> DuetMonitor Version:  ' + DuetMonitorVersion + '<br><br>')
+        response = ''.join(txt)
         
         query_components = parse_qs(urlparse(self.path).query)
 
+        print(query_components)
+
         if query_components.get('command'):
             cmd = query_components['command'][0]
-                                    
             if (cmd == 'terminate'):
                 shut_down()
                 return
@@ -279,12 +291,18 @@ class MyHandler(SimpleHTTPRequestHandler):
 
         if query_components.get('monitors'):
             value = query_components['monitors'][0]
+            value = value.split(',')
             validvalue = True
             invalid = ''
             for item in value:
+                print(item)
                 if not item in validStatusValues:
                     invalid = invalid + item + ' , '   # will always have trailing comma - get rid of if used later
                     validvalue = False
+                if item == 'none':
+                    value = item  # Over-ride - will be ok because of break
+                    validvalue = True
+                    break
 
             if validvalue:
                 monitors = value
@@ -292,14 +310,16 @@ class MyHandler(SimpleHTTPRequestHandler):
                 txt.append('Monitors have been set to: '+str(monitors))
                 cmdmsg = ''.join(txt)
             else:
-                txt = []
-                txt.append('The following invalid values were detected<br>')
                 invalid = invalid[:-len(' , ')]            #just get rid of the trailing comma
-                txt.append('<br>Valid values are: : ' + str(validStatusValues))
+                txt = []
+                txt.append('The following invalid values were detected:  ' + invalid+ '<br>')
+                txt.append('<br>Valid values are:  ' + str(validStatusValues))
+                txt.append('<br>Current monitors are unchanged:  ' + str(monitors))
                 cmdmsg = ''.join(txt)
 
         if query_components.get('nodisplay'):
             value = query_components['nodisplay'][0]
+            print('nodisplay = ' + value)
             if value == 'True':
                 nodisplay = True
                 txt = []
@@ -366,12 +386,6 @@ class MyHandler(SimpleHTTPRequestHandler):
                      SUBJECT,
                      '<br>'+MESSAGE
                      )
-         
-        else:
-            txt = []
-            txt.append('Information Message.<br> DuetMonitor Version:  '+ DuetMonitorVersion +'<br><br>')
-            response=''.join(txt)
-
             
         self._set_headers()
         self.wfile.write(self._html(response+tochange+subjectchange+cmdmsg))
@@ -490,19 +504,47 @@ def urlCall(url, timelimit):
 
 
 def getDuetStatus(model):
+    global lastseqsreply, noerror, nodisplay
+    status = display = msg = ''
     # Used to get the status information from Duet
     if model == 'rr_model':
-        URL = ('http://' + duet + '/rr_model?key=state')
-        r = urlCall(URL, 5)
-        if r.ok:
+        print(not 'none' in monitors)
+        print(not nodisplay)
+        if (not 'none' in monitors) or (not nodisplay):  # we need to check
+            print('Checking status')
+            URL = ('http://' + duet + '/rr_model?key=state')
+            r = urlCall(URL, 5)
+            if r.ok:
+                try:
+                    j = json.loads(r.text)
+                    status = j['result']['status']
+                    display = j['result']['displayMessage']
+                    #return status, display, msg
+                except:
+                    pass
+
+        if not noerror:   #Test here since so we do not make unnecessary calls
             try:
-                j = json.loads(r.text)
-                status = j['result']['status']
-                display = j['result']['displayMessage']
-                msg = '' # Not available in Standalone
-                return status, display, msg
+                URL = ('http://' + duet + '/rr_model?flags=f&key=seqs.reply')
+                r = urlCall(URL, 5)
+                if r.ok:
+                    j = json.loads(r.text)
+                    seqsreply = j['result']
+                    if seqsreply == 0:
+                       lastseqsreply = seqsreply
+                    if seqsreply > lastseqsreply:
+                        URL = ('http://' + duet + '/rr_reply')
+                        r = urlCall(URL, 5)
+                        if r.ok:
+                            msg = r.text
+                            if msg == '\n':  # No Message
+                                msg = ''
+                            lastseqsreply = seqsreply
             except:
-                pass
+                msg = 'There was an error getting the messages status'
+                print(msg)
+
+        return status, display, msg
     else:
         URL = ('http://' + duet + '/machine/status/')
         r = urlCall(URL, 5)
@@ -512,11 +554,13 @@ def getDuetStatus(model):
                 status = j['state']['status']
                 display = j['state']['displayMessage']
                 msg = j['messages']
+                if msg == '\n':   # No Message
+                    msg = ''
                 return status, display, msg
             except:
                 pass
     print('getDuetStatus failed to get data. Code: ' + str(r.status_code) + ' Reason: ' + str(r.reason))
-    return 'disconnected', ''
+    return 'disconnected', '', ''
 
 
 
@@ -540,6 +584,7 @@ def monitorLoop(apimodel):  # Run as a thread
     disconnected = 0
     lastDuetStatus = 'Not Monitoring'
     lastdisplayMessage = ''
+    lasterrorMessage = ''
 
     while monitoring:  # action can be changed by httpListener or SIGINT or CTL+C
 
@@ -566,16 +611,17 @@ def monitorLoop(apimodel):  # Run as a thread
 
         SUBJECT = 'DuetMonitor:'
         MESSAGE =  ''
+
         duetStatusChange = False
-        if duetStatus != lastDuetStatus:
-            if (monitors == 'all') or (duetStatus in monitors) or (lastDuetStatus in monitors):  #triggers on entering and leaving state
+        if (duetStatus != lastDuetStatus) and (duetStatus != ''):
+            if ('all' in monitors) or (duetStatus in monitors) or (lastDuetStatus in monitors):  #triggers on entering and leaving state
                 SUBJECT = SUBJECT + '  Status is ' + duetStatus
-                MESSAGE = ('DuetMonitor is watching the following status changes:  ' + str(monitors) + '<br><br>Duet status changed from:  ' + lastDuetStatus + '  to:  ' + duetStatus)
+                MESSAGE = ('<br>DuetMonitor is watching the following status changes:  ' + str(monitors) + '<br><br>Duet status changed from:  ' + lastDuetStatus + '  to:  ' + duetStatus)
                 lastDuetStatus = duetStatus
                 duetStatusChange = True
 
         displayMessageChange = False
-        if lastdisplayMessage != displayMessage:
+        if (lastdisplayMessage != displayMessage) and (displayMessage != ''):
             if not nodisplay:
                 SUBJECT = SUBJECT + '  Display Message changed'
                 MESSAGE = MESSAGE + '<br><br>Display Message is:  ' + displayMessage
@@ -583,7 +629,7 @@ def monitorLoop(apimodel):  # Run as a thread
                 displayMessageChange = True
 
         errorMessageChange = False
-        if lasterrorMessage != errorMessage:
+        if (lasterrorMessage != errorMessage) and (errorMessage != ''):
             if not noerror:
                 SUBJECT = SUBJECT + '  Error Message changed'
                 MESSAGE = MESSAGE + '<br><br>Error Message is:  ' + errorMessage
@@ -680,6 +726,9 @@ if __name__ == '__main__':
     
     global GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, FROM_ADDRESS, TO_ADDRESS, SUBJECT
     global thisinstancepid, httpthread, monitoring, connected
+    global lastseqsreply
+    lastseqsreply= 0 #reply counter
+
     monitoring = False
     connected = False
     
