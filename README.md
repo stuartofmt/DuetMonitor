@@ -13,6 +13,13 @@ emails are sent from your gmail account to any recipient with a legal email addr
 ###Version 1.0.0
 [1]  Initial version
 
+###Version 1.0.1
+[1]  Added monitoring of error messages
+
+[2]  Added additional Controls
+
+[3]  Provided additional information in browser UI
+
 
 ## General Description
 
@@ -20,15 +27,16 @@ The main capabilities include:
 1.  Send emails using your gmail address.
 2.  Can send to any legitimate email recipient.
 3.  Is controllable via a browser (or other http) interface (e.g. curl)
-4.  Is dynamically configurable for the status values that it monitors.
-5.  Reports if disconnected (> 2 sec) from Duet and stops monitoring.    
+4.  Is dynamically configurable for the values that it monitors.
+5.  Reports if disconnected (for more than 2 polling intervals) from Duet and stops monitoring.    
 
 Because it can also monitor display messages - you can embed M117 Messages in your gcode and macros (e.g. at the start and end of printing, at key points in a calibration macro) and receive an email in a customizable manner.
 
-DuetMonitor is intended to run constantly (if you wish) in the background.  From a http interface (e.g. browser) you can perform the following:
+DuetMonitor is intended to run constantly (if you wish) in the background.
+<br>From a http interface (e.g. browser) you can perform the following:
 1.  Start / Stop monitoring
 2.  Change the To: and Subject:
-3.  Change the status values being monitored
+3.  Change which values (status, display messages, error messages) are being monitored
 4.  Send an email independently of monitoring
 
 The ability to just send an email (does not need to be monitoring) makes it useful in conjunction with other programs such as DueUI and BtnCmd and ....<br><br>
@@ -86,7 +94,7 @@ https://github.com/stuartofmt/DuetMonitor/blob/master/DuetMonitor.service
 https://github.com/stuartofmt/DuetMonitor/blob/master/system-unit-file.md
 
 
-**Note that the program will send a system email confirming startup.**
+**Note that the program will send an email when it starts.**
 
 Example command line for running DuetMonitor in the background (linux)
 ```
@@ -122,8 +130,12 @@ An alternative if you are on Win10 is to use  Windows Subsystem for Linux (WSL) 
 DuetMonitor is used by sending html - therefore it can be controlled using a browser.  The normal use is intended to allow programs to send simple email messaged by invoking html.
 The general form is as follows:
 ```
-http://<ipaddress>:<port>/?{instruction}[&{instruction}]
+http://<ipaddress>:<port>/[?{instruction}][&{instruction}]
 ```
+**Note** simply sending http://<ipaddress>:<port> with no instructions will display the current settings.
+
+
+---
 
 Command instructions can be used to start and stop monitoring and terminate DuetMonitor.
 If used with other instructions - the other instructions are ignored.
@@ -144,26 +156,38 @@ http://localhost:8090/?command=terminate     # Terminates DuetMonitor on port 80
 
 The main instructions are:
 - monitors={a list of valid Duet status}<br>
-The list is in parentheses with each item separated by a comma. Each item is enclosed in single quotes<br>
-Valid status values are 'halted', 'idle', 'busy', 'processing', 'paused' 'pausing', 'resuming', 'cancelled'
-You can also use 'all' to include all status values.<br>
+The list is comma separated, no quotes.<br>
+Valid status values are:  all, none, halted,idle,busy,processing,paused,pausing,resuming,cancelled
+Note: You can also use 'all' to include all status values or 'none' to stop monitoring of status values.<br>
   
 Examples:
 ```
-http://localhost:8090/?monitors=('all')                 # Send email on all status changes
-http://localhost:8090/?monitors=('idle', 'processing')  # Send email when printing starts / stops
-http://localhost:8090/?monitors=('paused')              # Only send email if the printer pauses.
+http://localhost:8090/?monitors=all                # Send email on all status changes
+http://localhost:8090/?monitors= idle,processing   # Send email when printing starts / stops
+http://localhost:8090/?monitors=pause              # Only send email if the printer pauses.
 ```
-
-- nodisplay={instructions}<br>
+---
+- displaymessages={instructions}<br>
 Examples:
 ```
-http://localhost:8090/?nodisplay=False # Send email on display message changes
-http://localhost:8090/?nodisplay=True  # Ignore display message changes
+http://localhost:8090/?displaymessages=True   # Send email on display message changes
+http://localhost:8090/?displaymessages=False  # Ignore display message changes
 ```
-If display is on - you can (for example) send an email using M117.
+If displaymessages  is True - you can (for example) send an email using M117.
 
 ---
+
+- errormessages={instructions}<br>
+Examples:
+```
+http://localhost:8090/?errormessages=True   # Send email on error message changes
+http://localhost:8090/?errormessages=False  # Ignore error message changes
+```
+
+
+---
+
+
 - To={a valid email address}
 
 - Subject={The email subject}
@@ -237,7 +261,7 @@ Example
 
 #### -poll [number]
 If omitted - the default is 60 seconds
-Sets the interval between polling Duet.  Do not set this too short as the Duet is not intended for high frequency polling.
+Sets the interval between polling Duet.
 
 Example
 ```
@@ -253,7 +277,8 @@ Example
 ```
 
 #### -Subject [String]
-If omitted - the default is 'DuetMonitor:  Message'
+If omitted - the default is 'DuetMonitor:'
+This sets the Subject prefix for messages.
 
 Example
 ```
@@ -267,20 +292,31 @@ Example
 ```
 -monitors idle busy processing  # will monitor only these status
                                 # Not that these values are not quoted
+                                
+- monitors none                 # Status will not be monitored                                
 ```
 
-#### -startmonitor
+#### -dontstart
 If omitted - the default is False
 
 Example
 ```
--startmonitor    # starts monitoring when DuetMonitor.py is started
+-dontstart    # does NOT start monitoring when DuetMonitor.py is started
+              # if omitted will start monitoring when program starts
 ```
 
-#### -nodisplay
+#### -nodisplaymessages
 If omitted - the default is False
 
 Example
 ```
--nodisplay  # Does not monitor changes to display Messages
+-nodisplay  # Does not monitor display Messages
+```
+
+#### -noerrormessages
+If omitted - the default is False
+
+Example
+```
+-noerrormessages  # Does not monitor error Messages
 ```

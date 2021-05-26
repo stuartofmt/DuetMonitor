@@ -59,12 +59,12 @@ def init():
     parser.add_argument('-poll', type=float, nargs=1, default=[60])
     parser.add_argument('-monitors', nargs='+', default=['all',],
                         help='Status to monitor. Default = all')
-    parser.add_argument('-startmonitor', action='store_true', help='Default = start monitoring')
-    parser.add_argument('-nodisplaymessage', action='store_true', help='Default = display Messages')
-    parser.add_argument('-noerrormessage', action='store_true', help='Default = display error Messages')
+    parser.add_argument('-dontstart', action='store_true', help='Default = start monitoring')
+    parser.add_argument('-nodisplaymessages', action='store_true', help='Default = display Messages')
+    parser.add_argument('-noerrormessages', action='store_true', help='Default = display error Messages')
     args = vars(parser.parse_args())
 
-    global host, port, TO_ADDRESS, SUBJECT, duet, poll, monitors, startmonitor, nodisplaymessage, noerrormessage
+    global host, port, TO_ADDRESS, SUBJECT, duet, poll, monitors, startmonitor, displaymessages, errormessages
 
     host = args['host'][0]
     port = args['port'][0]  
@@ -73,12 +73,12 @@ def init():
     duet = args['duet'][0]
     poll = args['poll'][0]
     monitors = args['monitors']
-    startmonitor = args['startmonitor']
-    nodisplaymessage = args['nodisplaymessage']
-    noerrormessage = args['noerrormessage']
+    startmonitor = not args['dontstart']
+    displaymessages = not args['nodisplaymessages']
+    errormessages = not args['noerrormessages']
 
 
-    if not noerrormessage and poll > 6:  # Reporting on (error) message so must poll at least every 8 sec
+    if errormessages and poll > 6:  # Reporting on (error) message so must poll at least every 8 sec
         poll = 6                  # Use 6 sec to be safe and allow for syn delays e.g. calling gmail
 
     validvalue = True
@@ -245,23 +245,17 @@ class MyHandler(SimpleHTTPRequestHandler):
         return content.encode("utf8")  # NOTE: must return a bytes object!
 
     def do_GET(self):
-        global TO_ADDRESS, SUBJECT, monitoring, monitors, nodisplaymessage, noerrormessage, DuetMonitorVersion
+        global TO_ADDRESS, SUBJECTPRE, monitoring, monitors, displaymessages, errormessages, DuetMonitorVersion
 
         if 'favicon.ico' in self.path:
             return
 
         MESSAGE = tochange = subjectchange = cmdmsg = ''
-
-        txt = []
-        txt.append('Information Message.<br> DuetMonitor Version:  ' + DuetMonitorVersion + '<br><br>')
-        response = ''.join(txt)
         
         query_components = parse_qs(urlparse(self.path).query)
 
-        print(query_components)
-
         if query_components.get('command'):
-            cmd = query_components['command'][0]
+            cmd = query_components['command'][0].lower()
             if (cmd == 'terminate'):
                 shut_down()
                 return
@@ -269,28 +263,27 @@ class MyHandler(SimpleHTTPRequestHandler):
                 if not monitoring:
                     startMonitoring()
                     txt = []
-                    txt.append('Monitoring has been started<br>')
-                    txt.append('The following states are being monitored:  '+str(monitors))
-                    cmdmsg = ''.join(txt)
+                    txt.append('<br>Monitoring has been started<br>')
+                    cmdmsg = cmdmsg + ''.join(txt)
                 else:
                     txt = []
-                    txt.append('Command was ignored because Monitoring is already started<br>')
-                    txt.append('The following states are being monitored:  '+str(monitors))
-                    cmdmsg = ''.join(txt)
+                    txt.append('<br>Command was ignored because Monitoring is already started<br>')
+                    cmdmsg = cmdmsg + ''.join(txt)
             elif cmd == 'stop':
                 monitoring = False
                 txt = []
-                txt.append('Monitoring has been Stopped')
-                cmdmsg = ''.join(txt)
+                txt.append('<br>Monitoring has been Stopped')
+                cmdmsg = cmdmsg + ''.join(txt)
             else:
                 # only used if invalid command
                 txt = []
-                txt.append('Invalid command :  ')
+                txt.append('<br>Invalid command :  ')
                 txt.append(cmd + '<br>')
-                cmdmsg = ''.join(txt)
+                cmdmsg = cmdmsg + ''.join(txt)
 
         if query_components.get('monitors'):
-            value = query_components['monitors'][0]
+            value = query_components['monitors'][0].lower()
+            value = value.replace(' ','') #get rid of spaces
             value = value.split(',')
             validvalue = True
             invalid = ''
@@ -300,95 +293,113 @@ class MyHandler(SimpleHTTPRequestHandler):
                     invalid = invalid + item + ' , '   # will always have trailing comma - get rid of if used later
                     validvalue = False
                 if item == 'none':
-                    value = item  # Over-ride - will be ok because of break
+                    value = item  # Over-ride of variable value - will be ok because of break
                     validvalue = True
                     break
 
             if validvalue:
                 monitors = value
                 txt = []
-                txt.append('Monitors have been set to: '+str(monitors))
-                cmdmsg = ''.join(txt)
+                txt.append('<br>Monitors have been set to: '+str(monitors))
+                cmdmsg = cmdmsg + ''.join(txt)
             else:
                 invalid = invalid[:-len(' , ')]            #just get rid of the trailing comma
                 txt = []
-                txt.append('The following invalid values were detected:  ' + invalid+ '<br>')
+                txt.append('<br>The following invalid values were detected:  ' + invalid+ '<br>')
                 txt.append('<br>Valid values are:  ' + str(validStatusValues))
-                txt.append('<br>Current monitors are unchanged:  ' + str(monitors))
-                cmdmsg = ''.join(txt)
+                txt.append('<br>monitors were not changed')
+                cmdmsg = cmdmsg + ''.join(txt)
 
-        if query_components.get('nodisplaymessage'):
-            value = query_components['nodisplaymessage'][0]
-            print('nodisplaymessage = ' + value)
-            if value == 'True':
-                nodisplaymessage = True
+        if query_components.get('displaymessages'):
+            value = query_components['displaymessages'][0].lower()
+            print('displaymessages = ' + value)
+            if value == 'true':
+                displaymessages = True
                 txt = []
-                txt.append('display Messages will not be monitored')
-                cmdmsg = ''.join(txt)
-            elif value == 'False':
-                nodisplaymessage = False
+                txt.append('<br>display Messages will NOT  be monitored')
+                cmdmsg = cmdmsg + ''.join(txt)
+            elif value == 'false':
+                displaymessages = False
                 txt = []
-                txt.append('display Messages will be monitored')
-                cmdmsg = ''.join(txt)
+                txt.append('<br>display Messages WILL be monitored')
+                cmdmsg = cmdmsg + ''.join(txt)
             else:
                 txt = []
-                txt.append('Invalid value for nodisplaymessage :  ')
+                txt.append('<br>Invalid value for displaymessages :  ')
                 txt.append('<br>Can be either True or False)')
-                cmdmsg = ''.join(txt)
+                cmdmsg = cmdmsg + ''.join(txt)
 
-        if query_components.get('noerrormessage'):
-            value = query_components['noerrormessage'][0]
-            if value == 'True':
-                noerrormessage = True
+        if query_components.get('errormessages'):
+            value = query_components['errormessages'][0].lower()
+            if value == 'true':
+                errormessages = True
                 txt = []
-                txt.append('error Messages will not be monitored')
-                cmdmsg = ''.join(txt)
-            elif value == 'False':
-                noerrormessage = False
+                txt.append('<br>error Messages will NOT be monitored')
+                cmdmsg = cmdmsg + ''.join(txt)
+            elif value == 'false':
+                errormessages = False
                 txt = []
-                txt.append('error Messages will be monitored')
-                cmdmsg = ''.join(txt)
+                txt.append('<br>error Messages WILL be monitored')
+                cmdmsg = cmdmsg + ''.join(txt)
             else:
                 txt = []
-                txt.append('Invalid value for noerrormessage :  ')
+                txt.append('<br>Invalid value for errormessages :  ')
                 txt.append('<br>Can be either True or False)')
-                cmdmsg = ''.join(txt)
+                cmdmsg = cmdmsg + ''.join(txt)
 
         if query_components.get('To'):
             TO_ADDRESS = query_components['To'][0]
             #only used if no message
             txt = []
-            txt.append('To address was changed to:  ')
+            txt.append('<br>To address was changed to:  ')
             txt.append(TO_ADDRESS+'<br>')
-            tochange=''.join(txt)
+            cmdmsg = cmdmsg + ''.join(txt)
 
         if query_components.get('Subject'):
-            SUBJECT = query_components['Subject'][0]
+            SUBJECTPRE = query_components['Subject'][0]+''
             #only used if no message
             txt = []
-            txt.append('Subject was changed to:  ')
-            txt.append(SUBJECT+'<br>')
-            subjectchange=''.join(txt)          
+            txt.append('<br>Subject prefix was changed to:  ')
+            txt.append(SUBJECTPRE+'<br>')
+            cmdmsg = cmdmsg + ''.join(txt)
 
         if query_components.get('Message'):
             MESSAGE = query_components['Message'][0]
 
-        if MESSAGE != '':
-            txt = []
-            txt.append('DuetMonitor Version: ' + DuetMonitorVersion + '<br>')
-            txt.append('To: ' + TO_ADDRESS + '<br>')
-            txt.append('From: ' + FROM_ADDRESS + '<br>')
-            txt.append('Subject: ' + SUBJECT + '<br>')
-            txt.append('Message: ' + MESSAGE + '<br>')
-            response = ''.join(txt)
-            
-            send_mail(FROM_ADDRESS,TO_ADDRESS,
-                     SUBJECT,
-                     '<br>'+MESSAGE
-                     )
-            
+            if MESSAGE != '':
+                txt = []
+                txt.append('<br>Message was sent. <br>')
+                txt.append('To: ' + TO_ADDRESS + '<br>')
+                txt.append('From: ' + FROM_ADDRESS + '<br>')
+                txt.append('Subject: ' + SUBJECTPRE + '<br>')
+                txt.append('Message: ' + MESSAGE + '<br>')
+                cmdmsg = cmdmsg + ''.join(txt)
+
+                SUBJECT = SUBJECTPRE
+                MESSAGE = '<br>' + MESSAGE
+                send_mail(FROM_ADDRESS,TO_ADDRESS,SUBJECT,MESSAGE)
+            else:
+                txt = []
+                txt.append('<br>Cannot send a blank message. <br>')
+                cmdmsg = cmdmsg + ''.join(txt)
+
+        txt = []
+        txt.append('Information Message.<br> DuetMonitor Version:  ' + DuetMonitorVersion + '<br>')
+        txt.append('<br>Email Settings')
+        txt.append('<br>Subject prefix =&nbsp; &nbsp;' + SUBJECTPRE)
+        txt.append('<br>To =&nbsp;&nbsp;' + TO_ADDRESS)
+        txt.append('<br>General Settings')
+        txt.append('<br>Monitoring =&nbsp;&nbsp;' + str(monitoring))
+        txt.append('<br>Monitors =&nbsp;&nbsp;' + str(monitors))
+        txt.append('<br>Monitor display messages =&nbsp;&nbsp;' + str(displaymessages))
+        txt.append('<br>Monitor error messages =&nbsp;&nbsp;' + str(errormessages))
+        txt.append('<br>Polling interval (sec) =&nbsp;&nbsp;' + str(poll))
+        txt.append('<br><br><br><br>')
+        response = ''.join(txt)
+
+
         self._set_headers()
-        self.wfile.write(self._html(response+tochange+subjectchange+cmdmsg))
+        self.wfile.write(self._html(response+cmdmsg))
 
         return
     """
@@ -504,14 +515,11 @@ def urlCall(url, timelimit):
 
 
 def getDuetStatus(model):
-    global lastseqsreply, noerrormessage, nodisplaymessage
+    global lastseqsreply, errormessages, displaymessages
     status = display = msg = ''
     # Used to get the status information from Duet
     if model == 'rr_model':
-        print(not 'none' in monitors)
-        print(not nodisplaymessage)
-        if (not 'none' in monitors) or (not nodisplaymessage):  # we need to check
-            print('Checking status')
+        if (not 'none' in monitors) or (displaymessages):  # we need to check
             URL = ('http://' + duet + '/rr_model?key=state')
             r = urlCall(URL, 5)
             if r.ok:
@@ -523,7 +531,7 @@ def getDuetStatus(model):
                 except:
                     pass
 
-        if not noerrormessage:   #Test here since so we do not make unnecessary calls
+        if errormessages:   # Do not make unnecessary calls
             try:
                 URL = ('http://' + duet + '/rr_model?flags=f&key=seqs.reply')
                 r = urlCall(URL, 5)
@@ -541,7 +549,7 @@ def getDuetStatus(model):
                                 msg = ''
                             lastseqsreply = seqsreply
             except:
-                msg = 'There was an error getting the messages status'
+                msg = 'There was an error getting the error message'
                 print(msg)
 
         return status, display, msg
@@ -561,8 +569,6 @@ def getDuetStatus(model):
                 pass
     print('getDuetStatus failed to get data. Code: ' + str(r.status_code) + ' Reason: ' + str(r.reason))
     return 'disconnected', '', ''
-
-
 
 """
 Monitor
@@ -603,13 +609,13 @@ def monitorLoop(apimodel):  # Run as a thread
                         '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
                 print('')
                 monitoring = False   # Maybe this needs to be a selectable action
-                SUBJECT = 'DuetMonitor:  Duet has disconnected'
+                SUBJECT = SUBJECTPRE + 'Duet has disconnected'
                 MESSAGE = 'The printer at ' +duet + 'was disconnected from DuetMonitor for too long <br>Monitoring has been stopped<br>'
                 MESSAGE = MESSAGE + 'To restart monitoring you need to send http://[your DuetMonitor ip:port]/?command=start'
                 send_mail(FROM_ADDRESS,TO_ADDRESS,SUBJECT,MESSAGE)
                 return
 
-        SUBJECT = 'DuetMonitor:'
+        SUBJECT = SUBJECTPRE
         MESSAGE =  ''
 
         duetStatusChange = False
@@ -622,7 +628,7 @@ def monitorLoop(apimodel):  # Run as a thread
 
         displayMessageChange = False
         if (lastdisplayMessage != displayMessage) and (displayMessage != ''):
-            if not nodisplaymessage:
+            if displaymessages:
                 SUBJECT = SUBJECT + '  Display Message changed'
                 MESSAGE = MESSAGE + '<br><br>Display Message is:  ' + displayMessage
                 lastdisplayMessage = displayMessage
@@ -630,7 +636,7 @@ def monitorLoop(apimodel):  # Run as a thread
 
         errorMessageChange = False
         if (lasterrorMessage != errorMessage) and (errorMessage != ''):
-            if not noerrormessage:
+            if errormessages:
                 SUBJECT = SUBJECT + '  Error Message changed'
                 MESSAGE = MESSAGE + '<br><br>Error Message is:  ' + errorMessage
                 lasterrorMessage = errorMessage
@@ -643,7 +649,7 @@ def monitorLoop(apimodel):  # Run as a thread
         if monitoring:  # If no longer monitoring - sleep is by-passed for speedier exit response
             time.sleep(poll)  # poll every n seconds - placed here to speed startup
 
-    SUBJECT = 'DuetMonitor: Monitoring has ben suspended'
+    SUBJECT = SUBJECTPRE + ' Monitoring has ben suspended'
     MESSAGE = 'Monitoring has been suspended as a result of a user request <br>DuetMonitor is still running'
     monitoring = False
     print(MESSAGE.replace('<br>','\n'))
@@ -701,9 +707,9 @@ def closeHttpListener():
 
 def shut_down():
     global httpthread
-    send_mail(FROM_ADDRESS,TO_ADDRESS,
-              'DuetMonitor has been shut down',
-              '<br>This message confirms that DuetMonitor has been shut down.')
+    SUBJECT = SUBJECTPRE + ' Has been Shutdown'
+    MESSAGE = '<br>This message confirms that DuetMonitor has been shut down.'
+    send_mail(FROM_ADDRESS,TO_ADDRESS,SUBJECT,MESSAGE)
     time.sleep(1)  # give pending actions a chance to finish
     try:  # this should close this thread
         httpthread.join(10)
@@ -724,10 +730,11 @@ def quit_gracefully(*args):
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, quit_gracefully)    
     
-    global GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, FROM_ADDRESS, TO_ADDRESS, SUBJECT
+    global GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, FROM_ADDRESS, TO_ADDRESS, SUBJECT, SUBJECTPRE
     global thisinstancepid, httpthread, monitoring, connected
     global lastseqsreply
     lastseqsreply= 0 #reply counter
+    SUBJECTPRE = 'DuetMonitor: '
 
     monitoring = False
     connected = False
@@ -761,10 +768,9 @@ if __name__ == '__main__':
 
         if not (refresh_token is None):
             GOOGLE_REFRESH_TOKEN = refresh_token
-            send_mail(FROM_ADDRESS,TO_ADDRESS,
-              'DuetMonitor: Confirmation email',
-              '<b>This email confirms that the credentials for DuetMonitor are correct</b><br><br>' +
-              'So happy to hear from you!')
+            SUBJECT = SUBJECTPRE + ' Confirmation Email'
+            MESSAGE = '<b>This email confirms that the credentials for DuetMonitor are correct</b><br>Congratulations!'
+            send_mail(FROM_ADDRESS,TO_ADDRESS,SUBJECT,MESSAGE)
             confirm = input('\nA confirmation email has been sent to you. Did you get it (y/n):  ')
             if confirm == 'y':
                 try:
@@ -794,23 +800,19 @@ if __name__ == '__main__':
                 print('Sorry, port ' + str(port) + ' is already in use.')
                 print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
                 sys.exit(2)
-            # Does this need to be threaded with ThreadingHTTPServer ?
-            # or just call createHttpListener()
             httpthread = threading.Thread(target=createHttpListener, args=()).start()
-            # httpthread.start()
-            SUBJECT = 'DuetMonitor has started'
-            MESSAGE =  'This message confirms that DuetMonitor is running on port  '+str(port)
             if startmonitor:
+                print('\n Will start monitoring')
                 startMonitoring()
+            else:
+                print('\nStarted but not yet monitoring')
+                print('\nTo start monitoring send command=start')
+                SUBJECT = SUBJECTPRE + 'Has started but is not monitoring'
+                MESSAGE = '<br>This message confirms that DuetMonitor is running on port  ' + str(port)
+                MESSAGE = MESSAGE + '<br>To start monitoring send command=start'
+                send_mail(FROM_ADDRESS, TO_ADDRESS, SUBJECT, MESSAGE)
         except KeyboardInterrupt:
             pass  # This is handled as SIGINT
-        if not connected:
-            print(MESSAGE)
-            send_mail(FROM_ADDRESS, TO_ADDRESS, SUBJECT, MESSAGE)
     else:
         print('No port number was provided or port is already in use')
         sys.exit(2)
-
-
-    
-
