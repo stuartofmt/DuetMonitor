@@ -16,7 +16,7 @@ emails are sent from your gmail account to any recipient with a legal email addr
 
 ###Version 1.0.1
 
-[1]  Added monitoring of error messages
+[1]  Added monitoring of info messages
 
 [2]  Added additional Controls
 
@@ -38,7 +38,7 @@ DuetMonitor is intended to run constantly (if you wish) in the background.
 <br>From a http interface (e.g. browser) you can perform the following:
 1.  Start / Stop monitoring
 2.  Change the To: and Subject:
-3.  Change which values (status, display messages, error messages) are being monitored
+3.  Change which values (status, display messages, info messages) are being monitored
 4.  Send an email independently of monitoring
 
 The ability to just send an email (does not need to be monitoring) makes it useful in conjunction with other programs such as DueUI and BtnCmd and ....<br><br>
@@ -143,21 +143,25 @@ Command instructions can be used to start and stop monitoring and terminate Duet
 If used with other instructions - the other instructions are ignored.
 
 Command options are:
-command=start
-command=stop
-command=terminate  - causes DuetMonitor to terminate<br>
+
+**command=start<br>
+command=stop<br>
+command=terminate<br>**
+
 Examples:
 ```
 http://localhost:8090/?command=start         # Starts monitoring from DuetMonitor on port 8090
 http://localhost:8090/?command=stop          # Stops monitoring from DuetMonitor on port 8090
 http://localhost:8090/?command=terminate     # Terminates DuetMonitor on port 8090
 ```
----
 **Note that the program will send an email message when these commands are used.**
 
+---
 
-The main instructions are:
-- monitors={a list of valid Duet status}<br>
+Functional instructions are:
+
+**monitors={a list of valid Duet status}<br>**
+
 The list is comma separated, no quotes.<br>
 Valid status values are:  all, none, halted,idle,busy,processing,paused,pausing,resuming,cancelled
 Note: You can also use 'all' to include all status values or 'none' to stop monitoring of status values.<br>
@@ -169,7 +173,9 @@ http://localhost:8090/?monitors= idle,processing   # Send email when printing st
 http://localhost:8090/?monitors=pause              # Only send email if the printer pauses.
 ```
 ---
-- displaymessages={instructions}<br>
+
+**displaymessages={instructions}<br>**
+
 Examples:
 ```
 http://localhost:8090/?displaymessages=True   # Send email on display message changes
@@ -179,27 +185,28 @@ If displaymessages  is True - you can (for example) send an email using M117.
 
 ---
 
-- errormessages={instructions}<br>
+**infomessages={instructions}<br>**
+
 Examples:
 ```
-http://localhost:8090/?errormessages=True   # Send email on error message changes
-http://localhost:8090/?errormessages=False  # Ignore error message changes
+http://localhost:8090/?infomessages=True   # Send email on info message changes
+http://localhost:8090/?infomessages=False  # Ignore info message changes
 ```
 
 
 ---
 
+Email delivery instructions are:
 
-- To={a valid email address}
+**To={a valid email address}<br>
+Subject={The email subject}<br>
+Message={The email message}<br>**
 
-- Subject={The email subject}
-
-- Message={The email message}
-
-These are all optional. **The only time an email is sent is if the Message instruction is used**<br>
+These can be used singly or in combination, **The only time an email is sent is if the Message instruction is used**<br>
 If To and / or Subject are used they change the current settings until another change is made.
-This means that emails can be sent by only using the Message instruction.<br><br>
+
 When DuetMonitor starts - it uses default setting as specified in the **Options** section.<br><br>
+
 Example - send an email using the current settings of To and Subject:
 ```
 http://localhost:8090/?Message=I just sent an email
@@ -227,7 +234,7 @@ python3 DuetMonitor.py -h
 ```
 The response will give the version number at the top.
 
-The options are described here.  Each option is preceded by a dash -. Some options have parameters described in the square brackets.   The square brackets are NOT used in entering the options. If an option is not specified, the default used.
+The options are described here.  Each option is preceded by a dash - without any space between the dash and the option. Some options have parameters described in the square brackets.   The square brackets are NOT used in entering the options. If an option is not specified, the default used.
 
 
 #### -host [ip address]
@@ -296,7 +303,7 @@ Example
 -monitors idle busy processing  # will monitor only these status
                                 # Not that these values are not quoted
                                 
-- monitors none                 # Status will not be monitored                                
+-monitors none                 # Status will not be monitored                                
 ```
 
 #### -dontstart
@@ -316,10 +323,10 @@ Example
 -nodisplay  # Does not monitor display Messages
 ```
 
-#### -noerrormessages
+#### -noinfomessages
 If omitted - the default is False
 
 Example
 ```
--noerrormessages  # Does not monitor error Messages
+-noinfomessages  # Does not monitor info Messages
 ```

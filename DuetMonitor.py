@@ -62,10 +62,10 @@ def init():
                         help='Status to monitor. Default = all')
     parser.add_argument('-dontstart', action='store_true', help='Default = start monitoring')
     parser.add_argument('-nodisplaymessages', action='store_true', help='Default = display Messages')
-    parser.add_argument('-noerrormessages', action='store_true', help='Default = display error Messages')
+    parser.add_argument('-noinfomessages', action='store_true', help='Default = display info messages')
     args = vars(parser.parse_args())
 
-    global host, port, TO_ADDRESS, SUBJECT, duet, poll, monitors, startmonitor, displaymessages, errormessages
+    global host, port, TO_ADDRESS, SUBJECT, duet, poll, monitors, startmonitor, displaymessages, infomessages
 
     host = args['host'][0]
     port = args['port'][0]  
@@ -76,9 +76,9 @@ def init():
     monitors = args['monitors']
     startmonitor = not args['dontstart']
     displaymessages = not args['nodisplaymessages']
-    errormessages = not args['noerrormessages']
+    infomessages = not args['noinfomessages']
 
-    if errormessages and poll > 6:  # Reporting on (error) message so must poll at least every 8 sec
+    if infomessages and poll > 6:  # Reporting on (info) message so must poll at least every 8 sec
         poll = 6                  # Use 6 sec to be safe and allow for syn delays e.g. calling gmail
 
     validvalue = True
@@ -245,7 +245,7 @@ class MyHandler(SimpleHTTPRequestHandler):
         return content.encode("utf8")  # NOTE: must return a bytes object!
 
     def do_GET(self):
-        global TO_ADDRESS, SUBJECTPRE, monitoring, monitors, displaymessages, errormessages, DuetMonitorVersion
+        global TO_ADDRESS, SUBJECTPRE, monitoring, monitors, displaymessages, infomessages, DuetMonitorVersion
 
         if 'favicon.ico' in self.path:
             return
@@ -329,21 +329,21 @@ class MyHandler(SimpleHTTPRequestHandler):
                 txt.append('<br>Can be either True or False)')
                 cmdmsg = cmdmsg + ''.join(txt)
 
-        if query_components.get('errormessages'):
-            value = query_components['errormessages'][0].lower()
+        if query_components.get('infomessages'):
+            value = query_components['infomessages'][0].lower()
             if value == 'true':
-                errormessages = True
+                infomessages = True
                 txt = []
-                txt.append('<br>error Messages will NOT be monitored')
+                txt.append('<br>info Messages will NOT be monitored')
                 cmdmsg = cmdmsg + ''.join(txt)
             elif value == 'false':
-                errormessages = False
+                infomessages = False
                 txt = []
-                txt.append('<br>error Messages WILL be monitored')
+                txt.append('<br>info Messages WILL be monitored')
                 cmdmsg = cmdmsg + ''.join(txt)
             else:
                 txt = []
-                txt.append('<br>Invalid value for errormessages :  ')
+                txt.append('<br>Invalid value for infomessages :  ')
                 txt.append('<br>Can be either True or False)')
                 cmdmsg = cmdmsg + ''.join(txt)
 
@@ -392,7 +392,7 @@ class MyHandler(SimpleHTTPRequestHandler):
         txt.append('<br>Monitoring =&nbsp;&nbsp;' + str(monitoring))
         txt.append('<br>Monitors =&nbsp;&nbsp;' + ','.join(monitors))
         txt.append('<br>Monitor display messages =&nbsp;&nbsp;' + str(displaymessages))
-        txt.append('<br>Monitor error messages =&nbsp;&nbsp;' + str(errormessages))
+        txt.append('<br>Monitor info messages =&nbsp;&nbsp;' + str(infomessages))
         txt.append('<br>Polling interval (sec) =&nbsp;&nbsp;' + str(poll))
         txt.append('<br><br><br><br>')
         response = ''.join(txt)
@@ -515,7 +515,7 @@ def urlCall(url, timelimit):
 
 
 def getDuetStatus(model):
-    global lastseqsreply, errormessages, displaymessages
+    global lastseqsreply, infomessages, displaymessages
     status = display = msg = ''
     # Used to get the status information from Duet
     if model == 'rr_model':
@@ -531,7 +531,7 @@ def getDuetStatus(model):
                 except:
                     pass
 
-        if errormessages:   # Do not make unnecessary calls
+        if infomessages:   # Do not make unnecessary calls
             try:
                 URL = ('http://' + duet + '/rr_model?flags=f&key=seqs.reply')
                 r = urlCall(URL, 5)
@@ -549,7 +549,7 @@ def getDuetStatus(model):
                                 msg = ''
                             lastseqsreply = seqsreply
             except:
-                msg = 'There was an error getting the error message'
+                msg = 'There was an problem getting the info message'
                 print(msg)
 
         return status, display, msg
@@ -590,11 +590,11 @@ def monitorLoop(apimodel):  # Run as a thread
     disconnected = 0
     lastDuetStatus = 'Not Monitoring'
     lastdisplayMessage = ''
-    lasterrorMessage = ''
+    lastinfoMessage = ''
 
     while monitoring:  # action can be changed by httpListener or SIGINT or CTL+C
 
-        duetStatus, displayMessage, errorMessage = getDuetStatus(apimodel)
+        duetStatus, displayMessage, infoMessage = getDuetStatus(apimodel)
 
         if duetStatus == 'disconnected':  # provide some resiliency for temporary disconnects
             disconnected += 1
@@ -634,15 +634,15 @@ def monitorLoop(apimodel):  # Run as a thread
                 lastdisplayMessage = displayMessage
                 displayMessageChange = True
 
-        errorMessageChange = False
-        if (lasterrorMessage != errorMessage) and (errorMessage != ''):
-            if errormessages:
-                SUBJECT = SUBJECT + '  Error Message changed'
-                MESSAGE = MESSAGE + '<br><br>Error Message is:  ' + errorMessage
-                lasterrorMessage = errorMessage
-                errorMessageChange = True
+        infoMessageChange = False
+        if (lastinfoMessage != infoMessage) and (infoMessage != ''):
+            if infomessages:
+                SUBJECT = SUBJECT + '  info Message changed'
+                MESSAGE = MESSAGE + '<br><br>Info Message is:  ' + infoMessage
+                lastinfoMessage = infoMessage
+                infoMessageChange = True
 
-        if duetStatusChange or displayMessageChange or errorMessageChange :  # Send a message
+        if duetStatusChange or displayMessageChange or infoMessageChange :  # Send a message
             print(MESSAGE.replace('<br>','\n'))
             send_mail(FROM_ADDRESS, TO_ADDRESS, SUBJECT, MESSAGE)
 
