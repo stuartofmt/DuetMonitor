@@ -246,13 +246,28 @@ class MyHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         global TO_ADDRESS, SUBJECTPRE, monitoring, monitors, displaymessages, infomessages, DuetMonitorVersion
-
+        validoptions = ('command', 'monitors', 'displaymessages', 'infomessages', 'To', 'Subject', 'Message')
         if 'favicon.ico' in self.path:
             return
 
         MESSAGE = tochange = subjectchange = cmdmsg = ''
         
         query_components = parse_qs(urlparse(self.path).query)
+        invalidoptions = ''
+        if query_components:
+            for option in query_components:
+                if not option in validoptions:
+                    invalidoptions = invalidoptions + option + ','
+            if invalidoptions != '':
+                invalidoptions = invalidoptions.rstrip(',')
+                txt = []
+                txt.append('<br>One or more invalid options were detected:  ' + invalidoptions + '<br>')
+                txt.append('<br>Valid options are:  ' + ','.join(validoptions))
+                txt.append('<br>Request was ignored')
+                response = ''.join(txt)
+                self._set_headers()
+                self.wfile.write(self._html(response))
+                return
 
         if query_components.get('command'):
             cmd = query_components['command'][0].lower()
@@ -303,7 +318,7 @@ class MyHandler(SimpleHTTPRequestHandler):
                 txt.append('<br>Monitors have been set to: ' + ','.join(monitors))
                 cmdmsg = cmdmsg + ''.join(txt)
             else:
-                invalid = invalid[:-len(' , ')]            #just get rid of the trailing comma
+                invalid = invalid.rstrip(',')
                 txt = []
                 txt.append('<br>The following invalid values were detected:  ' + invalid+ '<br>')
                 txt.append('<br>Valid values are:  ' + ','.join(validStatusValues))
