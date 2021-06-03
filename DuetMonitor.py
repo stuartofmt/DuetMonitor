@@ -34,6 +34,7 @@ import time
 import requests
 
 
+
 DuetMonitorVersion = '1.0.1'
 validStatusValues = ('all', 'none', 'halted', 'idle', 'busy', 'processing', 'paused', 'pausing', 'resuming')
 
