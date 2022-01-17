@@ -5,6 +5,8 @@
 
 Note: The following steps assume a new Google Console user.  Some steps may not be necessary if you already have settings in use.
 
+**Also note that google changes its user interface from time to time so these instructions may not be exact**
+
 Open Google Cloud Console and log in using your Google account.
     https://console.cloud.google.com/
 
