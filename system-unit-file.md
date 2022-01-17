@@ -22,7 +22,7 @@ Edit the example file paying particular attention to the following:
 ```
 WorkingDir=/home/pi/DuetMonitor
 ```
-This needs to be the directory in which you have DuetMonitor.py installed.  If you are using startDuetLapse3.py it will be in the same directory as DuetLapse3. 
+This needs to be the directory in which you have DuetMonitor.py installed **BUT** with fully qualified filenames. 
 ```
 User=pi
 ```

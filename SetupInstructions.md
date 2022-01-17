@@ -1,8 +1,10 @@
-### This document guides you through the initial setup of DuetMonitor
+### This document guides you through the initial (or a new) setup of DuetMonitor
 
 
-From the directory where you installed DuetMonitor.py start it using the following command
+From the directory where you installed DuetMonitor.py start it using the following commands.
+
 ```
+rm ./DuetMonitor.conf
 python3 ./DuetMonitor.py
 ```
 The program will ask you to enter the credentials you created by following the instructions here:<br>

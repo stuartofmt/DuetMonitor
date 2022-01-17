@@ -35,7 +35,7 @@ import requests
 
 
 
-DuetMonitorVersion = '1.0.1'
+DuetMonitorVersion = '1.0.2'
 validStatusValues = ('all', 'none', 'halted', 'idle', 'busy', 'processing', 'paused', 'pausing', 'resuming')
 
 GOOGLE_ACCOUNTS_BASE_URL = 'https://accounts.google.com'
@@ -63,10 +63,15 @@ def init():
                         help='Status to monitor. Default = all')
     parser.add_argument('-dontstart', action='store_true', help='Default = start monitoring')
     parser.add_argument('-nodisplaymessages', action='store_true', help='Default = display Messages')
+    parser.add_argument('-displaykeywords', nargs='+', default=[],
+                        help='keywords to report. Default = all displaymessages')
     parser.add_argument('-noinfomessages', action='store_true', help='Default = display info messages')
+    parser.add_argument('-infokeywords', nargs='+', default=[],
+                        help='keywords to report. Default = all infomessages')
+    parser.add_argument('-passwd', type=str, nargs=1, default=[''], help='Duet password. Default = ""')
     args = vars(parser.parse_args())
 
-    global host, port, TO_ADDRESS, SUBJECT, duet, poll, monitors, startmonitor, displaymessages, infomessages
+    global host, port, TO_ADDRESS, SUBJECT, duet, poll, monitors, startmonitor, displaymessages, displaykeywords, infomessages, infokeywords, passwd
 
     host = args['host'][0]
     port = args['port'][0]  
@@ -77,18 +82,21 @@ def init():
     monitors = args['monitors']
     startmonitor = not args['dontstart']
     displaymessages = not args['nodisplaymessages']
+    displaykeywords = args['displaykeywords']
     infomessages = not args['noinfomessages']
+    infokeywords = args['infokeywords']
+    passwd = args['passwd'][0]
 
     if infomessages and poll > 6:  # Reporting on (info) message so must poll at least every 8 sec
         poll = 6                  # Use 6 sec to be safe and allow for syn delays e.g. calling gmail
 
     validvalue = True
-    for item in monitors:
-        if item not in validStatusValues:
-            print('\nInvalid Status used: ' + item)
+    for statusvalue in monitors:
+        if statusvalue not in validStatusValues:
+            print('\nInvalid Status used: ' + statusvalue)
             validvalue = False
-        if item == 'none':
-            monitors = item
+        if statusvalue == 'none':
+            monitors = statusvalue
             print('Status changes will NOT be monitored')
             break
 
@@ -97,6 +105,9 @@ def init():
         print('\nValid values are: : ' + ','.join(validStatusValues))
         print('\nStatus changes will NOT be monitored')
         monitors = 'none'
+
+    for keyword in displaykeywords:
+        print(keyword)
 
 """
 Auth and google related functions adapted from:
@@ -214,7 +225,12 @@ def send_mail(fromaddr, toaddr, subject, message):
     server.ehlo(GOOGLE_CLIENT_ID)
     server.starttls()
     server.docmd('AUTH', 'XOAUTH2 ' + auth_string)
-    server.sendmail(fromaddr, toaddr, msg.as_string())
+    try:
+        response = server.sendmail(fromaddr, toaddr, msg.as_string())
+        print('\nEmail Sent')
+    except smtplib.SMTPException as e:
+        print('\nThere was failure sending the email')
+        print(str(e))
     server.quit()
     
     
@@ -303,13 +319,13 @@ class MyHandler(SimpleHTTPRequestHandler):
             value = value.split(',')
             validvalue = True
             invalid = ''
-            for item in value:
-                print(item)
-                if not item in validStatusValues:
-                    invalid = invalid + item + ' , '   # will always have trailing comma - get rid of if used later
+            for statusvalue in value:
+                print(statusvalue)
+                if not statusvalue in validStatusValues:
+                    invalid = invalid + statusvalue + ' , '   # will always have trailing comma - get rid of if used later
                     validvalue = False
-                if item == 'none':
-                    value = item  # Over-ride of variable value - will be ok because of break
+                if statusvalue == 'none':
+                    value = statusvalue  # Over-ride of variable value - will be ok because of break
                     validvalue = True
                     break
 
@@ -431,94 +447,113 @@ class MyHandler(SimpleHTTPRequestHandler):
 Duet APIs
 """
 
-
-def getDuetVersion():
-    # Used to get the status information from Duet
+def loginDuet(password):
+    code = -1
     try:
-        model = 'rr_model'
-        URL = ('http://' + duet + '/rr_model?key=boards')
+        print(password)
+        URL = 'http://' + duet + '/rr_connect?password=' + password
         r = urlCall(URL, 5)
+        #print(r.text)
         j = json.loads(r.text)
-        version = j['result'][0]['firmwareVersion']
-        return 'rr_model', version
-    except:
+        code = j['err']
+        return 'rr_model', code
+    except:  #Currently there is no login for SBC so we try a general connection
+        try:
+            URL = ('http://' + duet + '/machine/status')
+            r = urlCall(URL, 5)
+            if r.OK:
+                return 'SBC', 0  # Fake a successful login
+            else:
+                raise Exception
+        except:
+            return 'none', code
+
+def getDuetVersion(model):
+    # Used to get the status information from Duet
+    if model == 'rr_model':
+        try:
+            URL = ('http://' + duet + '/rr_model?key=boards')
+            r = urlCall(URL, 5)
+            j = json.loads(r.text)
+            version = j['result'][0]['firmwareVersion']
+            return version
+        except:
+            return
+    else:
         try:
             model = '/machine/system'
             URL = ('http://' + duet + '/machine/status')
             r = urlCall(URL, 5)
             j = json.loads(r.text)
             version = j['boards'][0]['firmwareVersion']
-            return 'SBC', version
+            return version
         except:
-            return 'none', '0'
+            return
 
-def connectDuet():
+def connectDuet(password):
     connected = False
     # Get connected to the printer.
-
-    apimodel, printerVersion = getDuetVersion()
+    apimodel, code = loginDuet(password)
 
     if apimodel == 'none':
-        print('')
-        print('###############################################################')
+        print('\n###############################################################')
         print('The printer at ' + duet + ' did not respond')
         print('Check the ip address or logical printer name is correct')
         print('Duet software must support rr_model or /machine/status')
         print('###############################################################')
-        print('')
         connected = False
-        message =  ('The printer at ' + duet + ' did not respond')
         return apimodel, connected
+
+    if code == 1:
+        print('\n###############################################################')
+        print('The printer at ' + duet + ' responded but the password is invalid')
+        print('Check the password and try again')
+        print('###############################################################')
+        connected = False
+        return apimodel, connected
+
+    if code ==  2:
+        print('\n###############################################################')
+        print('The printer at ' + duet + ' responded but there are too many sessions')
+        print('Shut down some other connections and try again')
+        print('###############################################################')
+        connected = False
+        return apimodel, connected
+
+    printerVersion = getDuetVersion(apimodel)
 
     majorVersion = int(printerVersion[0])
 
     if majorVersion >= 3:
-        message = 'Connected to printer at ' + duet + ' using Duet version ' + printerVersion + '\nand using API access method ' + apimodel
-        print('')
+        print('\n###############################################################')
+        print( 'Connected to printer at ' + duet + ' using Duet version ' + printerVersion)
+        print( 'and using API access method ' + apimodel)
         print('###############################################################')
-        print( message)
-        print('###############################################################')
-        print('')
         connected = True
         return apimodel, connected
     else:
-        print('')
-        print('###############################################################')
+        print('\n###############################################################')
         print('The printer at ' + duet + ' needs to be at version 3 or above')
         print('The version on this printer is ' + printerVersion)
         print('###############################################################')
-        print('')
         connected = False
-        message =  ('The printer at ' + duet + ' needs to be at version 3 or above')
         return apimodel, connected
 
 def urlCall(url, timelimit):
     loop = 0
-    limit = 2  # Started at 2 - seems good enough to catch transients
+    limit = 2  # 3 checks seem good enough to catch transients
     while loop < limit:
         try:
             r = requests.get(url, timeout=timelimit)
             break
         except requests.ConnectionError as e:
-            print('')
-            print(
-                    '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-            print('There was a network failure: ' + str(e))
-            print(
-                    '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-            print('')
+            print('\nThere was a network failure: ' + str(e))
             loop += 1
-            error = 'Connection Error'
+            error = str(e)
         except requests.exceptions.Timeout as e:
-            print('')
-            print(
-                    '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-            print('There was a timeout failure: ' + str(e))
-            print(
-                    '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-            print('')
+            print('\nThere was a network timeout failure: ' + str(e))
             loop += 1
-            error = 'Timed Out'
+            error = str(e)
         time.sleep(poll)
 
     if loop >= limit:  # Create dummy response
@@ -543,12 +578,13 @@ def getDuetStatus(model):
                     j = json.loads(r.text)
                     status = j['result']['status']
                     display = j['result']['displayMessage']
-                    #return status, display, msg
                 except:
                     pass
+            else:
+                print('\ngetDuetStatus failed to get data. Code: ' + str(r.status_code) + ' Reason: ' + str(r.reason))
+                return 'disconnected', '', ''
 
         if infomessages:   # Do not make unnecessary calls
-            try:
                 URL = ('http://' + duet + '/rr_model?flags=f&key=seqs.reply')
                 r = urlCall(URL, 5)
                 if r.ok:
@@ -564,9 +600,9 @@ def getDuetStatus(model):
                             if msg == '\n':  # No Message
                                 msg = ''
                             lastseqsreply = seqsreply
-            except:
-                msg = 'There was an problem getting the info message'
-                print(msg)
+                else:
+                    print('\ngetDuetStatus failed to get data. Code: ' + str(r.status_code) + ' Reason: ' + str(r.reason))
+                    return 'disconnected', '', ''
 
         return status, display, msg
     else:
@@ -583,54 +619,61 @@ def getDuetStatus(model):
                 return status, display, msg
             except:
                 pass
-    print('getDuetStatus failed to get data. Code: ' + str(r.status_code) + ' Reason: ' + str(r.reason))
-    return 'disconnected', '', ''
+        else:
+            print('\ngetDuetStatus failed to get data. Code: ' + str(r.status_code) + ' Reason: ' + str(r.reason))
+            return 'disconnected', '', ''
 
 """
 Monitor
 """
 def startMonitoring():
-    global connected
-    apimodel, connected = connectDuet()
+    global connected, password
+    apimodel, connected = connectDuet(passwd)
 
     if connected:  # Monitor Loop will send Message
-        monitorthread = threading.Thread(target=monitorLoop, args=(apimodel,)).start()
+        monitorthread = threading.Thread(target=monitorLoop, args=(apimodel,))
+        # monitorthread.daemon = True
+        monitorthread.start()
     else:
         return False
     return True
 
 
-def monitorLoop(apimodel):  # Run as a thread
+def monitorLoop(apimodel):  # Run as a thread but not damon since it uses print()
     global monitoring, duetStatus
     monitoring = True
-    disconnected = 0
     lastDuetStatus = 'Not Monitoring'
     lastdisplayMessage = ''
     lastinfoMessage = ''
-
+    disconnected = 0
+    longdisconnect = False
     while monitoring:  # action can be changed by httpListener or SIGINT or CTL+C
-
         duetStatus, displayMessage, infoMessage = getDuetStatus(apimodel)
-
+        # make sure there is a connection
         if duetStatus == 'disconnected':  # provide some resiliency for temporary disconnects
             disconnected += 1
-            print('Printer is disconnected - Trying to reconnect')
-            if disconnected > 10:  # keep trying for a while just in case it was a transient issue
-                print('')
-                print(
-                        '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            print('\nPrinter is disconnected - Trying to reconnect')
+            if disconnected == 3:  # keep trying for a while just in case it was a transient issue
+                print('\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
                 print('Printer was disconnected from Duet for too long')
-                print('Monitoring has been stopped')
-                print(
-                        '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-                print('')
-                monitoring = False   # Maybe this needs to be a selectable action
+                print('Active monitoring will stop')
+                print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
                 SUBJECT = SUBJECTPRE + 'Duet has disconnected'
-                MESSAGE = 'The printer at ' +duet + 'was disconnected from DuetMonitor for too long <br>Monitoring has been stopped<br>'
-                MESSAGE = MESSAGE + 'To restart monitoring you need to send http://[your DuetMonitor ip:port]/?command=start'
+                MESSAGE = 'The printer at ' +duet + 'was disconnected from DuetMonitor for too long <br>Active monitoring has stopped<br>'
+                MESSAGE = MESSAGE + 'DuetMonitor will continue to check for a connection every 3 minutes<br>'
                 send_mail(FROM_ADDRESS,TO_ADDRESS,SUBJECT,MESSAGE)
-                return
+                longdisconnect = True
+            if longdisconnect:
+                time.sleep(3*60)
+            else:
+                time.sleep(10)
+            continue
 
+        #  reset connection checks because connected
+        disconnected = 0
+        longdisconnect = False
+
+        # Check these as they can be changed by user at any time
         SUBJECT = SUBJECTPRE
         MESSAGE =  ''
 
@@ -659,16 +702,17 @@ def monitorLoop(apimodel):  # Run as a thread
                 infoMessageChange = True
 
         if duetStatusChange or displayMessageChange or infoMessageChange :  # Send a message
-            print(MESSAGE.replace('<br>','\n'))
+            print('\n' + MESSAGE.replace('<br>','\n'))
             send_mail(FROM_ADDRESS, TO_ADDRESS, SUBJECT, MESSAGE)
 
         if monitoring:  # If no longer monitoring - sleep is by-passed for speedier exit response
             time.sleep(poll)  # poll every n seconds - placed here to speed startup
 
+    #  No longer monitoring
     SUBJECT = SUBJECTPRE + ' Monitoring has ben suspended'
     MESSAGE = 'Monitoring has been suspended as a result of a user request <br>DuetMonitor is still running'
     monitoring = False
-    print(MESSAGE.replace('<br>','\n'))
+    print('\n' + MESSAGE.replace('<br>','\n'))
     send_mail(FROM_ADDRESS, TO_ADDRESS, SUBJECT, MESSAGE)
     return  # The return ends the thread
     
@@ -709,7 +753,7 @@ def loadcredentials():
 def createHttpListener():
     global listener
     listener = ThreadingHTTPServer((host, port), MyHandler)
-    daemon_threads = True
+    listener.daemon = True
     listener.serve_forever()
 
 def closeHttpListener():
@@ -815,7 +859,9 @@ if __name__ == '__main__':
                 print('Sorry, port ' + str(port) + ' is already in use.')
                 print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
                 sys.exit(2)
-            httpthread = threading.Thread(target=createHttpListener, args=()).start()
+            httpthread = threading.Thread(target=createHttpListener, args=())
+            httpthread.daemon = True
+            httpthread.start()
             if startmonitor:
                 print('\n Will start monitoring')
                 startMonitoring()

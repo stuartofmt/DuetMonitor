@@ -23,6 +23,12 @@ emails are sent from your gmail account to any recipient with a legal email addr
 
 [3]  Provided additional information in browser UI
 
+###Version 1.0.2
+
+[1]  Changed behavior on lost connection to printer.<br>
+If the printer stays offline and DuetLapse was monitoring, it will continue to check for a connection every 3 minutes.<br>.
+This way, if the printer comes back online the monitoring will continue.
+
 
 ## General Description
 
@@ -31,7 +37,7 @@ The main capabilities include:
 2.  Can send to any legitimate email recipient.
 3.  Is controllable via a browser (or other http) interface (e.g. curl)
 4.  Is dynamically configurable for the values that it monitors.
-5.  Reports if disconnected (for more than 2 polling intervals) from Duet and stops monitoring.    
+5.  Reports if disconnected (for more than 2 polling intervals) from Duet.  Attempts to reconnect every 3 minutes.    
 
 Because it can also monitor display messages - you can embed M117 Messages in your gcode and macros (e.g. at the start and end of printing, at key points in a calibration macro) and receive an email in a customizable manner.
 
@@ -164,8 +170,8 @@ Functional instructions are:
 **monitors={a list of valid Duet status}<br>**
 
 The list is comma separated, no quotes.<br>
-Valid status values are:  all, none, halted,idle,busy,processing,paused,pausing,resuming,cancelled
-Note: You can also use 'all' to include all status values or 'none' to stop monitoring of status values.<br>
+Valid status values are:  all, none, halted,idle,busy,processing,paused,pausing,resuming,cancelled.
+Note: You can also use: 'all' to include all status values, or 'none' to stop monitoring of status values.<br>
   
 Examples:
 ```
