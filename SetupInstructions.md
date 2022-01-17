@@ -5,7 +5,9 @@ From the directory where you installed DuetMonitor.py start it using the followi
 ```
 python3 ./DuetMonitor.py
 ```
-The program will ask you to enter the credentials you created earlier.<br>
+The program will ask you to enter the credentials you created by following the instructions here:<br>
+https://github.com/stuartofmt/DuetMonitor/blob/master/GettingCredentials.md
+
 As part of this process you will need to use a browser.  It does NOT have to be on the same machine that you have installed DuetMonitor.<br>
 To avoid typo's it is best to cut and paste the credentials (using right mouse click for paste to avoid an accidental control characters)
 
