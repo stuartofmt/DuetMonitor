@@ -1,4 +1,4 @@
-DuetMonitor.conf
+*.conf
 /shelf/
 /workspace.xml
 /.idea
