@@ -547,11 +547,11 @@ def urlCall(url, timelimit):
             r = requests.get(url, timeout=timelimit)
             break
         except requests.ConnectionError as e:
-            print('\nThere was a network failure: ' + str(e))
+            print('\nThere was a network failure.')
             loop += 1
             error = str(e)
         except requests.exceptions.Timeout as e:
-            print('\nThere was a network timeout failure: ' + str(e))
+            print('\nThere was a network timeout failure.')
             loop += 1
             error = str(e)
         time.sleep(poll)
@@ -657,6 +657,7 @@ def monitorLoop(apimodel):  # Run as a thread but not damon since it uses print(
                 print('\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
                 print('Printer was disconnected from Duet for too long')
                 print('Active monitoring will stop')
+                print('Connection will be rechecked every 3 minutes)')
                 print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
                 SUBJECT = SUBJECTPRE + 'Duet has disconnected'
                 MESSAGE = 'The printer at ' +duet + 'was disconnected from DuetMonitor for too long <br>Active monitoring has stopped<br>'
