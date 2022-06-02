@@ -26,8 +26,9 @@ emails are sent from your gmail account to any recipient with a legal email addr
 ###Version 1.0.2
 
 [1]  Changed behavior on lost connection to printer.<br>
-If the printer stays offline and DuetLapse was monitoring, it will continue to check for a connection every 3 minutes.<br>.
-This way, if the printer comes back online the monitoring will continue.
+If the printer stays offline and DuetLapse was monitoring, it will check for a connection every 3 minutes.<br>
+If the printer comes back online monitoring will continue.<br>
+This way, DuetMonitor can be left running even if the printer is turned off.
 
 
 ## General Description
