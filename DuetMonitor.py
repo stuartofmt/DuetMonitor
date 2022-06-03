@@ -864,7 +864,7 @@ if __name__ == '__main__':
             httpthread.daemon = True
             httpthread.start()
             if startmonitor:
-                print('\n Will start monitoring')
+                print('\nWill start monitoring')
                 startMonitoring()
             else:
                 print('\nStarted but not yet monitoring')
