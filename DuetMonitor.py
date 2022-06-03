@@ -547,7 +547,7 @@ def urlCall(url, timelimit):
             r = requests.get(url, timeout=timelimit)
             break
         except requests.ConnectionError as e:
-            print('\nThere was a network failure.')
+            print('\nCannot connect to the printer.')
             loop += 1
             error = str(e)
         except requests.exceptions.Timeout as e:
