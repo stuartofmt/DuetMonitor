@@ -92,6 +92,8 @@ https://github.com/stuartofmt/DuetMonitor/blob/master/SetupInstructions.md
 ## Starting
 Once setup is complete - you will normally start DuetMonitor in one of the following ways.
 
+Note: The rrinter MUST be running and accessible whenever DuetMonitor is started.
+
 DuetMonitor requires a port number using the -port option  This is mandatory.<br>
 Other options for startup are described in the ##Startup Options## section below.
 
